@@ -1,0 +1,34 @@
+import { useCallback, useState } from 'react'
+import type { TreeStyle } from '@/utils/treeLayout'
+
+const storageKey = (treeId: string) => `koreni.treeStyle.${treeId}`
+
+function readStoredStyle(treeId: string | undefined): TreeStyle {
+  if (!treeId) return 'classic'
+  try {
+    const stored = localStorage.getItem(storageKey(treeId))
+    return stored === 'rooted' ? 'rooted' : 'classic'
+  } catch {
+    return 'classic'
+  }
+}
+
+/** Per-tree, per-device preference for the chart layout (classic vs. rooted). */
+export function useTreeStyle(treeId: string | undefined) {
+  const [style, setStyle] = useState<TreeStyle>(() => readStoredStyle(treeId))
+
+  const updateStyle = useCallback(
+    (next: TreeStyle) => {
+      setStyle(next)
+      if (!treeId) return
+      try {
+        localStorage.setItem(storageKey(treeId), next)
+      } catch {
+        // best-effort persistence only (private browsing, quota, etc.)
+      }
+    },
+    [treeId],
+  )
+
+  return [style, updateStyle] as const
+}

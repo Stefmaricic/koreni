@@ -1,0 +1,68 @@
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-display: 'Fraunces', ui-serif, Georgia, serif;
+
+  /* Warm, family-oriented palette: cream + root-green + earth accent. */
+  --color-cream-50: #fdfbf7;
+  --color-cream-100: #faf5ec;
+  --color-cream-200: #f3ead9;
+  --color-cream-300: #e8dac0;
+
+  --color-root-50: #f0f5f0;
+  --color-root-100: #dbe8dc;
+  --color-root-200: #b3d0b6;
+  --color-root-300: #86b48b;
+  --color-root-400: #5c9463;
+  --color-root-500: #3f7548;
+  --color-root-600: #2f5d38;
+  --color-root-700: #26492d;
+  --color-root-800: #1f3a25;
+  --color-root-900: #16291a;
+
+  --color-earth-50: #fbf1ea;
+  --color-earth-100: #f4dcc9;
+  --color-earth-200: #e8b78e;
+  --color-earth-300: #d99461;
+  --color-earth-400: #c97c4a;
+  --color-earth-500: #b1633a;
+  --color-earth-600: #8f4f30;
+
+  --color-ink-500: #3a352c;
+  --color-ink-600: #2a261f;
+  --color-ink-700: #1c1912;
+
+  --radius-card: 1.25rem;
+  --radius-pill: 999px;
+}
+
+@layer base {
+  html {
+    font-family: var(--font-sans);
+  }
+
+  body {
+    @apply bg-cream-50 text-ink-600 antialiased;
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+  }
+}
+
+@layer utilities {
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+}

@@ -1,0 +1,265 @@
+import { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import { Link, useNavigate, useParams } from 'react-router-dom'
+import { PersonActionSheet } from '@/components/tree/PersonActionSheet'
+import { TreeCanvas } from '@/components/tree/TreeCanvas'
+import { PersonFormModal } from '@/components/person/PersonFormModal'
+import { PersonProfileModal } from '@/components/person/PersonProfileModal'
+import { QuickAddPersonModal } from '@/components/person/QuickAddPersonModal'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
+import { FullPageSpinner } from '@/components/ui/Spinner'
+import { EmptyState } from '@/components/ui/EmptyState'
+import { useTreeData } from '@/hooks/useTreeData'
+import { useTreeStyle } from '@/hooks/useTreeStyle'
+import { deletePersonPhoto } from '@/services/storageService'
+import { createPerson, deletePerson } from '@/services/personService'
+import { addParentChild, addPartner } from '@/services/relationshipService'
+import { toastError } from '@/stores/toastStore'
+import { useAuthStore } from '@/stores/authStore'
+import { personFullName } from '@/utils/mappers'
+import type { MemberGender, Person, QuickAddKind } from '@/types/models'
+
+type SheetState =
+  | { mode: 'actions'; personId: string }
+  | { mode: 'profile'; personId: string }
+  | { mode: 'edit'; personId: string }
+  | { mode: 'create' }
+  | { mode: 'quickAdd'; personId: string; kind: QuickAddKind }
+  | { mode: 'delete'; personId: string }
+  | null
+
+export function TreePage() {
+  const { treeId } = useParams<{ treeId: string }>()
+  const { t } = useTranslation()
+  const navigate = useNavigate()
+  const userId = useAuthStore((s) => s.user?.id)
+  const { tree, graph, canEdit, loading, error, refresh } = useTreeData(treeId)
+
+  const [sheet, setSheet] = useState<SheetState>(null)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [search, setSearch] = useState('')
+  const [treeStyle, setTreeStyle] = useTreeStyle(treeId)
+
+  const searchResults = useMemo(() => {
+    if (!search.trim()) return []
+    const q = search.trim().toLowerCase()
+    return [...graph.people.values()]
+      .filter((p) => personFullName(p).toLowerCase().includes(q))
+      .slice(0, 8)
+  }, [search, graph])
+
+  if (loading) return <FullPageSpinner />
+
+  if (error || !tree) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-cream-50 px-4">
+        <EmptyState
+          title={t('errors.unauthorized')}
+          action={
+            <Link to="/dashboard" className="text-sm font-medium text-root-600 hover:underline">
+              {t('errors.goToDashboard')}
+            </Link>
+          }
+        />
+      </div>
+    )
+  }
+
+  const openActions = (personId: string) => {
+    setSelectedId(personId)
+    setSheet({ mode: 'actions', personId })
+  }
+
+  const handleQuickAdd = async (kind: QuickAddKind, values: { firstName: string; lastName: string; gender: MemberGender }) => {
+    if (!treeId || !userId || sheet?.mode !== 'quickAdd') return
+    const targetId = sheet.personId
+    setBusy(true)
+    let created: Person | null = null
+    try {
+      created = await createPerson(
+        treeId,
+        {
+          firstName: values.firstName,
+          lastName: values.lastName,
+          maidenName: '',
+          gender: values.gender,
+          birthDate: '',
+          birthPlace: '',
+          deathDate: '',
+          deathPlace: '',
+          bio: '',
+        },
+        userId,
+      )
+
+      if (kind === 'parent') {
+        await addParentChild(treeId, created.id, targetId)
+      } else if (kind === 'partner') {
+        await addPartner(treeId, targetId, created.id)
+      } else if (kind === 'child') {
+        await addParentChild(treeId, targetId, created.id)
+      } else if (kind === 'sibling') {
+        const parentIds = graph.parentIds(targetId)
+        if (parentIds.length === 0) {
+          toastError(new Error(t('person.noRelatives')))
+        } else {
+          for (const parentId of parentIds) {
+            await addParentChild(treeId, parentId, created.id)
+          }
+        }
+      }
+
+      await refresh()
+      setSelectedId(created.id)
+      setSheet(null)
+    } catch (err) {
+      if (created) await deletePerson(created.id).catch(() => {})
+      toastError(err)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const handleDelete = async (personId: string) => {
+    setBusy(true)
+    try {
+      const person = graph.people.get(personId)
+      await deletePerson(personId)
+      if (person?.photoUrl) await deletePersonPhoto(person.photoUrl).catch(() => {})
+      await refresh()
+      setSheet(null)
+      setSelectedId(null)
+    } catch (err) {
+      toastError(err)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="flex h-screen flex-col bg-cream-50">
+      <header className="flex items-center gap-3 border-b border-cream-200 bg-cream-50 px-3 py-2.5">
+        <button
+          onClick={() => navigate('/dashboard')}
+          className="rounded-full p-2 text-ink-600 hover:bg-cream-100"
+          aria-label={t('common.back')}
+        >
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={2}>
+            <path d="M12 4l-6 6 6 6" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
+
+        <h1 className="flex-1 truncate font-display text-base font-semibold text-ink-700 sm:text-lg">
+          {tree.name}
+        </h1>
+
+        <div className="relative w-40 sm:w-64">
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={t('tree.searchPlaceholder')}
+            className="w-full rounded-full border border-cream-300 bg-white px-3.5 py-1.5 text-sm focus:border-root-400 focus:outline-none focus:ring-2 focus:ring-root-200"
+          />
+          {searchResults.length > 0 && (
+            <div className="absolute right-0 top-full z-20 mt-1 w-56 rounded-xl border border-cream-200 bg-white py-1 shadow-lg">
+              {searchResults.map((p) => (
+                <button
+                  key={p.id}
+                  onClick={() => {
+                    setSearch('')
+                    openActions(p.id)
+                  }}
+                  className="block w-full px-3.5 py-2 text-left text-sm text-ink-700 hover:bg-cream-100"
+                >
+                  {personFullName(p)}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {canEdit && (
+          <button
+            onClick={() => setSheet({ mode: 'create' })}
+            className="rounded-full bg-root-600 px-3.5 py-1.5 text-sm font-medium text-cream-50 hover:bg-root-700"
+          >
+            + {t('tree.addPerson')}
+          </button>
+        )}
+      </header>
+
+      <div className="relative flex-1">
+        <TreeCanvas
+          graph={graph}
+          style={treeStyle}
+          onStyleChange={setTreeStyle}
+          selectedId={selectedId}
+          onSelectPerson={openActions}
+          onAddFirstPerson={() => setSheet({ mode: 'create' })}
+        />
+      </div>
+
+      <PersonActionSheet
+        open={sheet?.mode === 'actions'}
+        person={sheet?.mode === 'actions' ? graph.people.get(sheet.personId) ?? null : null}
+        canEdit={canEdit}
+        onClose={() => setSheet(null)}
+        onViewProfile={() => sheet?.mode === 'actions' && setSheet({ mode: 'profile', personId: sheet.personId })}
+        onEdit={() => sheet?.mode === 'actions' && setSheet({ mode: 'edit', personId: sheet.personId })}
+        onQuickAdd={(kind) => sheet?.mode === 'actions' && setSheet({ mode: 'quickAdd', personId: sheet.personId, kind })}
+        onDelete={() => sheet?.mode === 'actions' && setSheet({ mode: 'delete', personId: sheet.personId })}
+      />
+
+      <PersonProfileModal
+        open={sheet?.mode === 'profile'}
+        person={sheet?.mode === 'profile' ? graph.people.get(sheet.personId) ?? null : null}
+        graph={graph}
+        canEdit={canEdit}
+        onClose={() => setSheet(null)}
+        onEdit={() => sheet?.mode === 'profile' && setSheet({ mode: 'edit', personId: sheet.personId })}
+        onDelete={() => sheet?.mode === 'profile' && setSheet({ mode: 'delete', personId: sheet.personId })}
+        onSelectPerson={(id) => {
+          setSelectedId(id)
+          setSheet({ mode: 'profile', personId: id })
+        }}
+      />
+
+      {treeId && (
+        <PersonFormModal
+          open={sheet?.mode === 'edit' || sheet?.mode === 'create'}
+          mode={sheet?.mode === 'edit' ? 'edit' : 'create'}
+          treeId={treeId}
+          person={sheet?.mode === 'edit' ? graph.people.get(sheet.personId) ?? null : null}
+          onClose={() => setSheet(null)}
+          onSaved={async (person) => {
+            await refresh()
+            setSelectedId(person.id)
+            setSheet(null)
+          }}
+        />
+      )}
+
+      <QuickAddPersonModal
+        open={sheet?.mode === 'quickAdd'}
+        kind={sheet?.mode === 'quickAdd' ? sheet.kind : null}
+        loading={busy}
+        onSubmit={(values) => sheet?.mode === 'quickAdd' && handleQuickAdd(sheet.kind, values)}
+        onClose={() => setSheet(null)}
+      />
+
+      <ConfirmDialog
+        open={sheet?.mode === 'delete'}
+        title={t('tree.deletePerson')}
+        body={t('tree.deletePersonBody', {
+          name: sheet?.mode === 'delete' ? personFullName(graph.people.get(sheet.personId) ?? ({} as Person)) : '',
+        })}
+        confirmLabel={t('common.delete')}
+        danger
+        loading={busy}
+        onConfirm={() => sheet?.mode === 'delete' && handleDelete(sheet.personId)}
+        onCancel={() => setSheet(null)}
+      />
+    </div>
+  )
+}
