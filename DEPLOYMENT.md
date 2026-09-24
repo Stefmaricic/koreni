@@ -114,6 +114,16 @@ unrelated to what domain the frontend itself is served from.
 
 Koreni uses client-side routing (React Router), so the host must serve
 `index.html` for unknown paths instead of a 404 (e.g. loading
-`/tree/abc123` directly). Vercel, Netlify and Cloudflare Pages all detect a
-Vite SPA automatically and handle this correctly out of the box — no extra
-config file needed for a default setup.
+`/tree/abc123` directly, or refreshing on any page other than `/`). None of
+the three hosts do this automatically for a plain Vite build, so the repo
+includes both config files needed:
+
+- **Vercel**: [`vercel.json`](vercel.json) at the project root, with a
+  rewrite sending every path to `/index.html`.
+- **Netlify and Cloudflare Pages**: [`public/_redirects`](public/_redirects),
+  which both platforms read the same way and ends up published at the site
+  root automatically as part of the Vite build.
+
+If you ever see a 404 on a direct link into the app (not just on `/`),
+this is almost always the cause — confirm the relevant file above exists
+and was actually deployed.
