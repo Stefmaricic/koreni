@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { LanguageSwitcher } from '@/components/layout/LanguageSwitcher'
+import { ThemeToggle } from '@/components/layout/ThemeToggle'
 
 interface AuthLayoutProps {
   title: string
@@ -19,7 +20,10 @@ export function AuthLayout({ title, subtitle, children, footer }: AuthLayoutProp
           <img src="/favicon.svg" alt="" className="h-8 w-8 rounded-lg" />
           <span className="font-display text-lg font-semibold text-root-700">{t('app.name')}</span>
         </Link>
-        <LanguageSwitcher />
+        <div className="flex items-center gap-2">
+          <ThemeToggle />
+          <LanguageSwitcher />
+        </div>
       </div>
 
       <div className="flex flex-1 items-center justify-center px-5 pb-12">
@@ -28,7 +32,7 @@ export function AuthLayout({ title, subtitle, children, footer }: AuthLayoutProp
             <h1 className="font-display text-2xl font-semibold text-ink-700">{title}</h1>
             <p className="mt-2 text-sm text-ink-500">{subtitle}</p>
           </div>
-          <div className="rounded-card border border-cream-200 bg-white p-6 shadow-sm">{children}</div>
+          <div className="rounded-card border border-cream-200 bg-surface p-6 shadow-sm">{children}</div>
           {footer && <div className="mt-5 text-center text-sm text-ink-500">{footer}</div>}
         </div>
       </div>

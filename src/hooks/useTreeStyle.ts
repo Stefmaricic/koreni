@@ -3,13 +3,15 @@ import type { TreeStyle } from '@/utils/treeLayout'
 
 const storageKey = (treeId: string) => `koreni.treeStyle.${treeId}`
 
+const DEFAULT_STYLE: TreeStyle = 'rooted'
+
 function readStoredStyle(treeId: string | undefined): TreeStyle {
-  if (!treeId) return 'classic'
+  if (!treeId) return DEFAULT_STYLE
   try {
     const stored = localStorage.getItem(storageKey(treeId))
-    return stored === 'rooted' ? 'rooted' : 'classic'
+    return stored === 'classic' || stored === 'rooted' ? stored : DEFAULT_STYLE
   } catch {
-    return 'classic'
+    return DEFAULT_STYLE
   }
 }
 

@@ -2,9 +2,11 @@ import clsx from 'clsx'
 import { useToastStore } from '@/stores/toastStore'
 
 const variantClasses = {
-  success: 'bg-root-600 text-cream-50',
+  success: 'bg-root-600 text-white',
   error: 'bg-red-600 text-white',
-  info: 'bg-ink-700 text-cream-50',
+  // root-900 (not ink-700) on purpose: ink-* flips light/dark with the
+  // theme, but this chip must always read as a dark surface with light text.
+  info: 'bg-root-900 text-white',
 }
 
 export function ToastViewport() {

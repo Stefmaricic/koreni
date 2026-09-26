@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
+import { ThemeIcon } from '@/components/layout/ThemeToggle'
 import { TreeNode } from '@/components/tree/TreeNode'
 import { Button } from '@/components/ui/Button'
 import { usePanZoom } from '@/hooks/usePanZoom'
+import { useThemeStore } from '@/stores/themeStore'
 import type { FamilyGraph } from '@/utils/familyGraph'
 import { computeTreeLayout, NODE_HEIGHT, type TreeStyle } from '@/utils/treeLayout'
 
@@ -23,7 +25,7 @@ function IconButton({ label, active, onClick, children }: { label: string; activ
       title={label}
       onClick={onClick}
       className={`flex h-10 w-10 items-center justify-center rounded-full border shadow-sm ${
-        active ? 'border-root-500 bg-root-600 text-cream-50' : 'border-cream-200 bg-white text-ink-600 hover:bg-cream-100'
+        active ? 'border-root-500 bg-root-600 text-white' : 'border-cream-200 bg-surface text-ink-600 hover:bg-cream-100'
       }`}
     >
       {children}
@@ -59,6 +61,8 @@ export function TreeCanvas({ graph, style, onStyleChange, selectedId, onSelectPe
   const { t } = useTranslation()
   const containerRef = useRef<HTMLDivElement>(null)
   const { transform, zoomIn, zoomOut, fitToScreen, handlers, wheelTargetRef } = usePanZoom(containerRef)
+  const theme = useThemeStore((s) => s.theme)
+  const toggleTheme = useThemeStore((s) => s.toggle)
 
   const layout = useMemo(() => computeTreeLayout(graph, style), [graph, style])
   const peopleById = graph.people
@@ -205,6 +209,12 @@ export function TreeCanvas({ graph, style, onStyleChange, selectedId, onSelectPe
           onClick={() => onStyleChange(style === 'classic' ? 'rooted' : 'classic')}
         >
           <span className="text-base leading-none">🌳</span>
+        </IconButton>
+        <IconButton
+          label={theme === 'dark' ? t('common.switchToLight') : t('common.switchToDark')}
+          onClick={toggleTheme}
+        >
+          <ThemeIcon theme={theme} />
         </IconButton>
       </div>
 

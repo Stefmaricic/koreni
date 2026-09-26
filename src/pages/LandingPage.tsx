@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { LanguageSwitcher } from '@/components/layout/LanguageSwitcher'
+import { ThemeToggle } from '@/components/layout/ThemeToggle'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 
@@ -21,6 +22,7 @@ export function LandingPage() {
           <span className="font-display text-xl font-semibold text-root-700">{t('app.name')}</span>
         </div>
         <div className="flex items-center gap-3">
+          <ThemeToggle />
           <LanguageSwitcher />
           <Link to="/login">
             <Button variant="ghost">{t('landing.login')}</Button>

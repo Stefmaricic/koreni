@@ -19,7 +19,9 @@
     "no": "Ne",
     "optional": "opciono",
     "search": "Pretraga",
-    "comingSoon": "Uskoro"
+    "comingSoon": "Uskoro",
+    "switchToLight": "Pređi na svetlu temu",
+    "switchToDark": "Pređi na tamnu temu"
   },
   "nav": {
     "dashboard": "Početna",
@@ -109,7 +111,19 @@
     "deletePersonBody": "Ovo uklanja osobu {{name}} i njene veze iz stabla. Ova radnja se ne može poništiti.",
     "searchPlaceholder": "Pronađi osobu u ovom stablu",
     "switchToRooted": "Prikaži kao stablo sa korenom",
-    "switchToClassic": "Prikaži klasičan raspored"
+    "switchToClassic": "Prikaži klasičan raspored",
+    "export": "Exportuj",
+    "exportTitle": "Exportuj porodično stablo",
+    "exportSubtitle": "Datoteka se generiše na vašem uređaju i ne sadrži fotografije.",
+    "exportSvgTitle": "SVG (vektor)",
+    "exportSvgBody": "Najbolje za velika stabla — ostaje oštro na bilo kom uvećanju, a datoteka je mala bez obzira na broj osoba.",
+    "exportPngTitle": "PNG (slika)",
+    "exportPngBody": "Najlakše za deljenje porukom, imejlom ili na društvenim mrežama.",
+    "exportPdfTitle": "PDF (dokument)",
+    "exportPdfBody": "Najbolje za štampu ili čuvanje kao dokument za arhivu.",
+    "exportRecommendedForLarge": "Preporučeno za vaše stablo ({{count}} osoba)",
+    "exporting": "Izvoženje…",
+    "exportError": "Izvoz nije uspeo. Pokušajte ponovo."
   },
   "person": {
     "profileTitle": "Profil",

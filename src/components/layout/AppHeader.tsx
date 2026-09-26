@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate } from 'react-router-dom'
 import { LanguageSwitcher } from '@/components/layout/LanguageSwitcher'
+import { ThemeToggle } from '@/components/layout/ThemeToggle'
 import { Avatar } from '@/components/ui/Avatar'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { signOut } from '@/services/authService'
@@ -37,6 +38,7 @@ export function AppHeader() {
         </Link>
 
         <div className="flex items-center gap-3">
+          <ThemeToggle />
           <LanguageSwitcher className="hidden sm:block" />
           <div className="relative">
             <button
@@ -53,7 +55,7 @@ export function AppHeader() {
                   aria-hidden
                   onClick={() => setMenuOpen(false)}
                 />
-                <div className="absolute right-0 z-20 mt-2 w-48 rounded-xl border border-cream-200 bg-white py-1 shadow-lg">
+                <div className="absolute right-0 z-20 mt-2 w-48 rounded-xl border border-cream-200 bg-surface py-1 shadow-lg">
                   <div className="sm:hidden px-3 py-2">
                     <LanguageSwitcher />
                   </div>

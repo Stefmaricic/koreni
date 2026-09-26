@@ -22,7 +22,7 @@ export function TreeNode({ person, x, y, selected, onSelect }: TreeNodeProps) {
       <button
         type="button"
         onClick={() => onSelect(person.id)}
-        className={`flex h-full w-full flex-col items-center gap-1.5 rounded-2xl border bg-white px-2 py-3 text-center shadow-sm transition-transform hover:-translate-y-0.5 hover:shadow-md ${
+        className={`flex h-full w-full flex-col items-center gap-1.5 rounded-2xl border bg-surface px-2 py-3 text-center shadow-sm transition-transform hover:-translate-y-0.5 hover:shadow-md ${
           selected ? 'border-root-500 ring-2 ring-root-200' : 'border-cream-200'
         }`}
       >

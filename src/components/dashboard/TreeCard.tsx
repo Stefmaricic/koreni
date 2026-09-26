@@ -49,7 +49,7 @@ export function TreeCard({ tree, onRename, onDelete }: TreeCardProps) {
         {menuOpen && (
           <>
             <button className="fixed inset-0 z-10 cursor-default" aria-hidden onClick={() => setMenuOpen(false)} />
-            <div className="absolute right-0 z-20 mt-1 w-40 rounded-xl border border-cream-200 bg-white py-1 shadow-lg">
+            <div className="absolute right-0 z-20 mt-1 w-40 rounded-xl border border-cream-200 bg-surface py-1 shadow-lg">
               <button
                 onClick={() => {
                   setMenuOpen(false)
@@ -87,7 +87,7 @@ export function TreeCard({ tree, onRename, onDelete }: TreeCardProps) {
 
       <Link
         to={`/tree/${tree.id}`}
-        className="mt-1 inline-flex items-center justify-center rounded-full bg-root-50 px-4 py-2 text-sm font-medium text-root-700 hover:bg-root-100"
+        className="mt-1 inline-flex items-center justify-center rounded-full bg-root-50 px-4 py-2 text-sm font-medium text-root-700 hover:bg-root-100 dark:bg-root-900/50 dark:text-root-300 dark:hover:bg-root-900/70"
       >
         {t('dashboard.open')}
       </Link>

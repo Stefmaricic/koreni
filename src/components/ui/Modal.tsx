@@ -37,7 +37,7 @@ export function Modal({ open, onClose, title, children, size = 'md' }: ModalProp
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
       <button
         aria-label="Close"
-        className="absolute inset-0 bg-ink-700/40 backdrop-blur-[2px]"
+        className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
         onClick={onClose}
       />
       <div
@@ -45,7 +45,7 @@ export function Modal({ open, onClose, title, children, size = 'md' }: ModalProp
         aria-modal="true"
         aria-label={title}
         className={clsx(
-          'safe-bottom relative z-10 max-h-[88vh] w-full overflow-y-auto rounded-t-card bg-cream-50 p-5 shadow-2xl sm:m-4 sm:max-h-[85vh] sm:rounded-card',
+          'safe-bottom relative z-10 max-h-[88vh] w-full overflow-y-auto rounded-t-card bg-surface p-5 shadow-2xl sm:m-4 sm:max-h-[85vh] sm:rounded-card',
           sizeClasses[size],
         )}
       >

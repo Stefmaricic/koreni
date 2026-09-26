@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import { ExportTreeModal } from '@/components/tree/ExportTreeModal'
 import { PersonActionSheet } from '@/components/tree/PersonActionSheet'
 import { TreeCanvas } from '@/components/tree/TreeCanvas'
 import { PersonFormModal } from '@/components/person/PersonFormModal'
@@ -40,6 +41,7 @@ export function TreePage() {
   const [busy, setBusy] = useState(false)
   const [search, setSearch] = useState('')
   const [treeStyle, setTreeStyle] = useTreeStyle(treeId)
+  const [exportOpen, setExportOpen] = useState(false)
 
   const searchResults = useMemo(() => {
     if (!search.trim()) return []
@@ -159,10 +161,10 @@ export function TreePage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={t('tree.searchPlaceholder')}
-            className="w-full rounded-full border border-cream-300 bg-white px-3.5 py-1.5 text-sm focus:border-root-400 focus:outline-none focus:ring-2 focus:ring-root-200"
+            className="w-full rounded-full border border-cream-300 bg-surface px-3.5 py-1.5 text-sm focus:border-root-400 focus:outline-none focus:ring-2 focus:ring-root-200"
           />
           {searchResults.length > 0 && (
-            <div className="absolute right-0 top-full z-20 mt-1 w-56 rounded-xl border border-cream-200 bg-white py-1 shadow-lg">
+            <div className="absolute right-0 top-full z-20 mt-1 w-56 rounded-xl border border-cream-200 bg-surface py-1 shadow-lg">
               {searchResults.map((p) => (
                 <button
                   key={p.id}
@@ -179,10 +181,24 @@ export function TreePage() {
           )}
         </div>
 
+        {graph.people.size > 0 && (
+          <button
+            onClick={() => setExportOpen(true)}
+            aria-label={t('tree.export')}
+            title={t('tree.export')}
+            className="rounded-full p-2 text-ink-600 hover:bg-cream-100"
+          >
+            <svg width="19" height="19" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.8}>
+              <path d="M10 2.5v10M10 12.5l-3.5-3.5M10 12.5l3.5-3.5" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M3.5 14v1.5a2 2 0 002 2h9a2 2 0 002-2V14" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+        )}
+
         {canEdit && (
           <button
             onClick={() => setSheet({ mode: 'create' })}
-            className="rounded-full bg-root-600 px-3.5 py-1.5 text-sm font-medium text-cream-50 hover:bg-root-700"
+            className="rounded-full bg-root-600 px-3.5 py-1.5 text-sm font-medium text-white hover:bg-root-700"
           >
             + {t('tree.addPerson')}
           </button>
@@ -246,6 +262,14 @@ export function TreePage() {
         loading={busy}
         onSubmit={(values) => sheet?.mode === 'quickAdd' && handleQuickAdd(sheet.kind, values)}
         onClose={() => setSheet(null)}
+      />
+
+      <ExportTreeModal
+        open={exportOpen}
+        onClose={() => setExportOpen(false)}
+        graph={graph}
+        style={treeStyle}
+        treeName={tree.name}
       />
 
       <ConfirmDialog

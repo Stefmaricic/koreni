@@ -17,8 +17,8 @@ const sizeClasses = {
 }
 
 const genderTint: Record<MemberGender, string> = {
-  female: 'bg-earth-100 text-earth-600',
-  male: 'bg-root-100 text-root-700',
+  female: 'bg-earth-100 text-earth-600 dark:bg-earth-600/30 dark:text-earth-200',
+  male: 'bg-root-100 text-root-700 dark:bg-root-900/50 dark:text-root-300',
   other: 'bg-cream-200 text-ink-600',
   unknown: 'bg-cream-200 text-ink-600',
 }

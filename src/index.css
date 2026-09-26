@@ -1,5 +1,8 @@
 @import 'tailwindcss';
 
+/* Manual (class-based) dark mode: toggled by adding/removing `dark` on <html>. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
   --font-display: 'Fraunces', ui-serif, Georgia, serif;
@@ -33,17 +36,47 @@
   --color-ink-600: #2a261f;
   --color-ink-700: #1c1912;
 
+  /* Card/modal/dropdown background. Separate from cream-50 (the page
+     background) so the two can diverge in dark mode: cards need to sit
+     visibly *above* the page rather than blend into it. */
+  --color-surface: #ffffff;
+
   --radius-card: 1.25rem;
   --radius-pill: 999px;
+}
+
+/*
+ * Dark mode redefines the same tokens above rather than introducing new
+ * ones, so every component that already uses bg-cream-*, text-ink-*, etc.
+ * gets dark styling for free — nothing per-component to maintain. Only
+ * cream/ink/surface flip; the root (green) and earth (terracotta) accents
+ * stay recognizable in both themes since they're mid-tone to begin with.
+ */
+.dark {
+  --color-cream-50: #141e18;
+  --color-cream-100: #1b2721;
+  --color-cream-200: #2b3a32;
+  --color-cream-300: #3b4c42;
+
+  --color-ink-500: #a79c89;
+  --color-ink-600: #e7e0d2;
+  --color-ink-700: #f5f0e6;
+
+  --color-surface: #1e2b23;
 }
 
 @layer base {
   html {
     font-family: var(--font-sans);
+    color-scheme: light;
+  }
+
+  html.dark {
+    color-scheme: dark;
   }
 
   body {
-    @apply bg-cream-50 text-ink-600 antialiased;
+    @apply bg-cream-50 text-ink-600 antialiased transition-colors duration-200;
   }
 
   h1,

@@ -5,9 +5,11 @@ import App from './App.tsx'
 import './index.css'
 import '@/lib/i18n'
 import { initAuthListener } from '@/stores/authStore'
+import { initTheme } from '@/stores/themeStore'
 import { FullPageSpinner } from '@/components/ui/Spinner'
 
 initAuthListener()
+initTheme()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
