@@ -89,7 +89,8 @@
     "roleEditor": "Urednik",
     "roleViewer": "Gledalac",
     "tryDemo": "Isprobaj demo porodično stablo",
-    "demoTreeName": "Demo porodica (Marić)"
+    "demoTreeName": "Demo porodica (Marić)",
+    "whatsNew": "Novine"
   },
   "tree": {
     "zoomIn": "Uvećaj",

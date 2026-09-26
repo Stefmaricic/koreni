@@ -89,7 +89,8 @@
     "roleEditor": "Уредник",
     "roleViewer": "Гледалац",
     "tryDemo": "Испробај демо породично стабло",
-    "demoTreeName": "Демо породица (Марић)"
+    "demoTreeName": "Демо породица (Марић)",
+    "whatsNew": "Новине"
   },
   "tree": {
     "zoomIn": "Увећај",

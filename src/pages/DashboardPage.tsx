@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { AppHeader } from '@/components/layout/AppHeader'
 import { TreeCard } from '@/components/dashboard/TreeCard'
 import { TreeFormDialog } from '@/components/dashboard/TreeFormDialog'
+import { WhatsNewPanel } from '@/components/dashboard/WhatsNewPanel'
 import { Button } from '@/components/ui/Button'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { EmptyState } from '@/components/ui/EmptyState'
@@ -92,6 +93,10 @@ export function DashboardPage() {
             <p className="mt-1 text-sm text-ink-500">{t('dashboard.subtitle')}</p>
           </div>
           <Button onClick={() => setCreateOpen(true)}>+ {t('dashboard.newTree')}</Button>
+        </div>
+
+        <div className="mb-6">
+          <WhatsNewPanel />
         </div>
 
         {loading ? (
