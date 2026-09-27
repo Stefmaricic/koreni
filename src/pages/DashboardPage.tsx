@@ -16,6 +16,8 @@ import { useAuthStore } from '@/stores/authStore'
 import { toastError } from '@/stores/toastStore'
 import type { FamilyTreeSummary } from '@/types/models'
 
+const TRELLO_BOARD_URL = 'https://trello.com/b/kIq0hOO2/my-trello-board'
+
 export function DashboardPage() {
   const { t } = useTranslation()
   const navigate = useNavigate()
@@ -96,7 +98,20 @@ export function DashboardPage() {
         </div>
 
         <div className="grid gap-6 lg:grid-cols-[220px_1fr] lg:items-start">
-          <WhatsNewPanel />
+          <div className="flex flex-col gap-2">
+            <WhatsNewPanel />
+            <a
+              href={TRELLO_BOARD_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 px-1 text-xs text-ink-500 hover:text-root-600 hover:underline"
+            >
+              <svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.8} className="shrink-0">
+                <path d="M7 13l6-6M13 4h3v3M9 4H6a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2v-3" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              {t('dashboard.trackerLink')}
+            </a>
+          </div>
 
           <div>
             {loading ? (

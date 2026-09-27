@@ -90,7 +90,8 @@
     "roleViewer": "Gledalac",
     "tryDemo": "Isprobaj demo porodično stablo",
     "demoTreeName": "Demo porodica (Marić)",
-    "whatsNew": "Novine"
+    "whatsNew": "Novine",
+    "trackerLink": "Pogledaj sve prijave i predloge na Trello tabli"
   },
   "tree": {
     "zoomIn": "Uvećaj",
