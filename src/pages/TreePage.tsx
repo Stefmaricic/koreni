@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ExportTreeModal } from '@/components/tree/ExportTreeModal'
+import { ShareTreeModal } from '@/components/tree/ShareTreeModal'
 import { FeedbackModal } from '@/components/feedback/FeedbackModal'
 import { PersonActionSheet } from '@/components/tree/PersonActionSheet'
 import { TreeCanvas } from '@/components/tree/TreeCanvas'
@@ -44,6 +45,7 @@ export function TreePage() {
   const [treeStyle, setTreeStyle] = useTreeStyle(treeId)
   const [exportOpen, setExportOpen] = useState(false)
   const [feedbackOpen, setFeedbackOpen] = useState(false)
+  const [shareOpen, setShareOpen] = useState(false)
 
   const searchResults = useMemo(() => {
     if (!search.trim()) return []
@@ -202,6 +204,22 @@ export function TreePage() {
           </button>
         )}
 
+        {role === 'owner' && (
+          <button
+            onClick={() => setShareOpen(true)}
+            aria-label={t('tree.share')}
+            title={t('tree.share')}
+            className="rounded-full p-2 text-ink-600 hover:bg-cream-100"
+          >
+            <svg width="19" height="19" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.8}>
+              <circle cx="15" cy="4.5" r="2" />
+              <circle cx="5" cy="10" r="2" />
+              <circle cx="15" cy="15.5" r="2" />
+              <path d="M6.7 8.9l6.6-3.3M6.7 11.1l6.6 3.3" strokeLinecap="round" />
+            </svg>
+          </button>
+        )}
+
         {canEdit && (
           <button
             onClick={() => setSheet({ mode: 'create' })}
@@ -281,6 +299,8 @@ export function TreePage() {
       />
 
       <FeedbackModal open={feedbackOpen} onClose={() => setFeedbackOpen(false)} />
+
+      {treeId && <ShareTreeModal open={shareOpen} onClose={() => setShareOpen(false)} treeId={treeId} />}
 
       <ConfirmDialog
         open={sheet?.mode === 'delete'}

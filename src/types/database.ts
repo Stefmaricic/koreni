@@ -74,6 +74,33 @@ export type FeedbackRow = {
   created_at: string
 }
 
+export type TreeInviteRow = {
+  id: string
+  tree_id: string
+  role: MembershipRole
+  token: string
+  created_by: string
+  created_at: string
+  expires_at: string
+  used_by: string | null
+  used_at: string | null
+  revoked: boolean
+}
+
+// Real foreign-key metadata, not just `[]` placeholders: supabase-js's typed
+// query builder uses these to resolve embeds like `family_members(count)` or
+// `profiles(display_name)` inside a .select() string. Leaving this empty
+// works fine for plain column selects, but silently turns any embed into a
+// `SelectQueryError` type — which then makes the *whole* query result type
+// `never`, the same class of bug documented above for Row/Insert/Update.
+type FkTo<Table extends string, Columns extends readonly string[]> = {
+  foreignKeyName: string
+  columns: Columns
+  isOneToOne: false
+  referencedRelation: Table
+  referencedColumns: ['id']
+}
+
 export interface Database {
   public: {
     Tables: {
@@ -87,19 +114,19 @@ export interface Database {
         Row: FamilyTreeRow
         Insert: Partial<FamilyTreeRow> & { name: string; owner_id: string }
         Update: Partial<FamilyTreeRow>
-        Relationships: []
+        Relationships: [FkTo<'profiles', ['owner_id']>]
       }
       tree_memberships: {
         Row: TreeMembershipRow
         Insert: Partial<TreeMembershipRow> & { tree_id: string; user_id: string }
         Update: Partial<TreeMembershipRow>
-        Relationships: []
+        Relationships: [FkTo<'family_trees', ['tree_id']>, FkTo<'profiles', ['user_id']>]
       }
       family_members: {
         Row: FamilyMemberRow
         Insert: Partial<FamilyMemberRow> & { tree_id: string; first_name: string }
         Update: Partial<FamilyMemberRow>
-        Relationships: []
+        Relationships: [FkTo<'family_trees', ['tree_id']>, FkTo<'profiles', ['created_by']>]
       }
       relationships: {
         Row: RelationshipRow
@@ -110,16 +137,35 @@ export interface Database {
           person_b_id: string
         }
         Update: Partial<RelationshipRow>
-        Relationships: []
+        Relationships: [
+          FkTo<'family_trees', ['tree_id']>,
+          FkTo<'family_members', ['person_a_id']>,
+          FkTo<'family_members', ['person_b_id']>,
+        ]
       }
       feedback: {
         Row: FeedbackRow
         Insert: Partial<FeedbackRow> & { user_id: string; message: string }
         Update: Partial<FeedbackRow>
-        Relationships: []
+        Relationships: [FkTo<'profiles', ['user_id']>]
+      }
+      tree_invites: {
+        Row: TreeInviteRow
+        Insert: Partial<TreeInviteRow> & { tree_id: string; role: MembershipRole; token: string; created_by: string }
+        Update: Partial<TreeInviteRow>
+        Relationships: [FkTo<'family_trees', ['tree_id']>, FkTo<'profiles', ['created_by']>]
       }
     }
     Views: Record<string, never>
-    Functions: Record<string, never>
+    Functions: {
+      get_invite_info: {
+        Args: { p_token: string }
+        Returns: { tree_name: string; role: MembershipRole; is_valid: boolean }[]
+      }
+      redeem_invite: {
+        Args: { p_token: string }
+        Returns: string
+      }
+    }
   }
 }

@@ -126,7 +126,31 @@
     "exportPdfBody": "Најбоље за штампу или чување као документ за архиву.",
     "exportRecommendedForLarge": "Препоручено за ваше стабло ({{count}} особа)",
     "exporting": "Извожење…",
-    "exportError": "Извоз није успео. Покушајте поново."
+    "exportError": "Извоз није успео. Покушајте поново.",
+    "share": "Дели",
+    "shareTitle": "Дели породично стабло",
+    "shareMembersTitle": "Људи са приступом",
+    "shareInviteTitle": "Позови рођака",
+    "shareRoleLabel": "Улога",
+    "shareGenerateLink": "Направи линк за позивање",
+    "shareCopyLink": "Копирај",
+    "shareLinkCopied": "Линк је копиран!",
+    "sharePendingTitle": "Активни позиви",
+    "sharePendingEmpty": "Нема активних позива.",
+    "shareRevoke": "Опозови",
+    "shareRevoked": "Позив је опозван.",
+    "shareExpiresAt": "Истиче {{date}}",
+    "shareCreateError": "Нисмо могли да направимо позив. Покушајте поново."
+  },
+  "invite": {
+    "title": "Позивница за породично стабло",
+    "loading": "Учитавање позивнице…",
+    "notFound": "Овај линк за позивање није важећи.",
+    "expiredOrUsed": "Овај позив је истекао, искоришћен је или је опозван. Затражите нови линк од власника стабла.",
+    "description": "Позвани сте да се придружите стаблу „{{treeName}}“ као {{role}}.",
+    "acceptButton": "Прихвати позив",
+    "loginPrompt": "Пријавите се или направите налог да бисте прихватили позив.",
+    "acceptError": "Нисмо могли да прихватимо позив. Покушајте поново."
   },
   "person": {
     "profileTitle": "Профил",
