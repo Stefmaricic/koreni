@@ -104,10 +104,18 @@ export function usePanZoom(containerRef: RefObject<HTMLElement | null>) {
         return
       }
 
-      if (pointers.current.size === 1 && dragStart.current) {
-        const dx = e.clientX - dragStart.current.x
-        const dy = e.clientY - dragStart.current.y
-        setTransform((prev) => ({ ...prev, x: dragStart.current!.tx + dx, y: dragStart.current!.ty + dy }))
+      const drag = dragStart.current
+      if (pointers.current.size === 1 && drag) {
+        // Snapshot `drag` into this closure rather than re-reading
+        // dragStart.current inside the updater below: with fast pointer
+        // movement, React can batch several of these setTransform calls
+        // before running them, and by the time a later one actually
+        // executes, a pointerup in between may have already reset
+        // dragStart.current to null — throwing here crashed the whole tree
+        // view during quick drags.
+        const dx = e.clientX - drag.x
+        const dy = e.clientY - drag.y
+        setTransform((prev) => ({ ...prev, x: drag.tx + dx, y: drag.ty + dy }))
       }
     },
     [zoomAt],
