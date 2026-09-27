@@ -9,6 +9,23 @@ export interface ChangelogEntry {
 // short bullet phrases, the way you'd casually tell someone what's new.
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: '2026-09-27',
+    cyrl: [
+      'Позивање чланова породице да заједно уређују стабло',
+      'Дугме за пријаву проблема и предлога',
+      'Линк ка Трело табли испод новости',
+      'Поправљен пад апликације при брзом померању стабла',
+      'Имејл потврда налога сада у Корени дизајну',
+    ],
+    latn: [
+      'Pozivanje članova porodice da zajedno uređuju stablo',
+      'Dugme za prijavu problema i predloga',
+      'Link ka Trello tabli ispod novosti',
+      'Popravljen pad aplikacije pri brzom pomeranju stabla',
+      'Imejl potvrda naloga sada u Koreni dizajnu',
+    ],
+  },
+  {
     date: '2026-09-26',
     cyrl: [
       'Додат dark mode (тамна тема)',
