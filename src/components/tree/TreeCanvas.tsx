@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ThemeIcon } from '@/components/layout/ThemeToggle'
+import { FeedbackIcon } from '@/components/feedback/FeedbackWidget'
 import { TreeNode } from '@/components/tree/TreeNode'
 import { Button } from '@/components/ui/Button'
 import { usePanZoom } from '@/hooks/usePanZoom'
@@ -15,6 +16,7 @@ interface TreeCanvasProps {
   selectedId: string | null
   onSelectPerson: (personId: string) => void
   onAddFirstPerson: () => void
+  onOpenFeedback: () => void
 }
 
 function IconButton({ label, active, onClick, children }: { label: string; active?: boolean; onClick: () => void; children: React.ReactNode }) {
@@ -57,7 +59,15 @@ function RootsGraphic({ x, topY, bottomY, opacity = 1 }: { x: number; topY: numb
   )
 }
 
-export function TreeCanvas({ graph, style, onStyleChange, selectedId, onSelectPerson, onAddFirstPerson }: TreeCanvasProps) {
+export function TreeCanvas({
+  graph,
+  style,
+  onStyleChange,
+  selectedId,
+  onSelectPerson,
+  onAddFirstPerson,
+  onOpenFeedback,
+}: TreeCanvasProps) {
   const { t } = useTranslation()
   const containerRef = useRef<HTMLDivElement>(null)
   const { transform, zoomIn, zoomOut, fitToScreen, handlers, wheelTargetRef } = usePanZoom(containerRef)
@@ -215,6 +225,9 @@ export function TreeCanvas({ graph, style, onStyleChange, selectedId, onSelectPe
           onClick={toggleTheme}
         >
           <ThemeIcon theme={theme} />
+        </IconButton>
+        <IconButton label={t('feedback.button')} onClick={onOpenFeedback}>
+          <FeedbackIcon />
         </IconButton>
       </div>
 

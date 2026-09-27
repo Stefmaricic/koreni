@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ExportTreeModal } from '@/components/tree/ExportTreeModal'
+import { FeedbackModal } from '@/components/feedback/FeedbackModal'
 import { PersonActionSheet } from '@/components/tree/PersonActionSheet'
 import { TreeCanvas } from '@/components/tree/TreeCanvas'
 import { PersonFormModal } from '@/components/person/PersonFormModal'
@@ -42,6 +43,7 @@ export function TreePage() {
   const [search, setSearch] = useState('')
   const [treeStyle, setTreeStyle] = useTreeStyle(treeId)
   const [exportOpen, setExportOpen] = useState(false)
+  const [feedbackOpen, setFeedbackOpen] = useState(false)
 
   const searchResults = useMemo(() => {
     if (!search.trim()) return []
@@ -218,6 +220,7 @@ export function TreePage() {
           selectedId={selectedId}
           onSelectPerson={openActions}
           onAddFirstPerson={() => setSheet({ mode: 'create' })}
+          onOpenFeedback={() => setFeedbackOpen(true)}
         />
       </div>
 
@@ -276,6 +279,8 @@ export function TreePage() {
         style={treeStyle}
         treeName={tree.name}
       />
+
+      <FeedbackModal open={feedbackOpen} onClose={() => setFeedbackOpen(false)} />
 
       <ConfirmDialog
         open={sheet?.mode === 'delete'}
