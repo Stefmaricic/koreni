@@ -114,6 +114,7 @@
     "searchPlaceholder": "Пронађи особу у овом стаблу",
     "switchToRooted": "Прикажи као стабло са кореном",
     "switchToClassic": "Прикажи класичан распоред",
+    "adminPreview": "Преглед (администратор)",
     "export": "Експортуј",
     "exportTitle": "Експортуј породично стабло",
     "exportSubtitle": "Датотека се генерише на вашем уређају и не садржи фотографије.",
@@ -172,7 +173,10 @@
     "displayName": "Име за приказ",
     "changePassword": "Промени лозинку",
     "dangerZone": "Опасна зона",
-    "deleteAccount": "Обриши налог"
+    "deleteAccount": "Обриши налог",
+    "adminTreesTitle": "Сва породична стабла",
+    "adminTreesEmpty": "Још увек нема креираних стабала.",
+    "adminTreesOwner": "Власник: {{name}}"
   },
   "errors": {
     "notFound": "Нисмо пронашли оно што тражите.",

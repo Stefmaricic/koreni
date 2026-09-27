@@ -114,6 +114,7 @@
     "searchPlaceholder": "Pronađi osobu u ovom stablu",
     "switchToRooted": "Prikaži kao stablo sa korenom",
     "switchToClassic": "Prikaži klasičan raspored",
+    "adminPreview": "Pregled (administrator)",
     "export": "Exportuj",
     "exportTitle": "Exportuj porodično stablo",
     "exportSubtitle": "Datoteka se generiše na vašem uređaju i ne sadrži fotografije.",
@@ -172,7 +173,10 @@
     "displayName": "Ime za prikaz",
     "changePassword": "Promeni lozinku",
     "dangerZone": "Opasna zona",
-    "deleteAccount": "Obriši nalog"
+    "deleteAccount": "Obriši nalog",
+    "adminTreesTitle": "Sva porodična stabla",
+    "adminTreesEmpty": "Još uvek nema kreiranih stabala.",
+    "adminTreesOwner": "Vlasnik: {{name}}"
   },
   "errors": {
     "notFound": "Nismo pronašli ono što tražite.",

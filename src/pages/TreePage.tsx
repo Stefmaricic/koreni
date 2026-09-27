@@ -34,7 +34,7 @@ export function TreePage() {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const userId = useAuthStore((s) => s.user?.id)
-  const { tree, graph, canEdit, loading, error, refresh } = useTreeData(treeId)
+  const { tree, graph, role, canEdit, loading, error, refresh } = useTreeData(treeId)
 
   const [sheet, setSheet] = useState<SheetState>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -152,8 +152,13 @@ export function TreePage() {
           </svg>
         </button>
 
-        <h1 className="flex-1 truncate font-display text-base font-semibold text-ink-700 sm:text-lg">
-          {tree.name}
+        <h1 className="flex min-w-0 flex-1 items-center gap-2 truncate font-display text-base font-semibold text-ink-700 sm:text-lg">
+          <span className="truncate">{tree.name}</span>
+          {role === null && (
+            <span className="shrink-0 rounded-full bg-earth-100 px-2 py-0.5 text-xs font-medium text-earth-600 dark:bg-earth-600/30 dark:text-earth-200">
+              {t('tree.adminPreview')}
+            </span>
+          )}
         </h1>
 
         <div className="relative w-40 sm:w-64">

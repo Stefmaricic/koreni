@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { AppHeader } from '@/components/layout/AppHeader'
 import { LanguageSwitcher } from '@/components/layout/LanguageSwitcher'
+import { AdminTreesPanel } from '@/components/admin/AdminTreesPanel'
 import { FeedbackAdminPanel } from '@/components/feedback/FeedbackAdminPanel'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
@@ -11,11 +12,10 @@ import { updatePassword } from '@/services/authService'
 import { useAuthStore } from '@/stores/authStore'
 import { toastError, useToastStore } from '@/stores/toastStore'
 
-// Must match the email in the feedback_select_owner RLS policy
-// (supabase/migrations/0003_feedback.sql) — this is just so the section
-// isn't rendered for other people; Supabase itself returns no rows to
-// anyone else regardless of this check.
-const FEEDBACK_OWNER_EMAIL = 'mstefan44@gmail.com'
+// Must match is_app_admin() in supabase/migrations/0004_admin_read_access.sql
+// — this only decides whether these sections render; Supabase itself
+// returns no rows to anyone else regardless of this check.
+const ADMIN_EMAIL = 'mstefan44@gmail.com'
 
 export function SettingsPage() {
   const { t } = useTranslation()
@@ -102,7 +102,12 @@ export function SettingsPage() {
             </form>
           </Card>
 
-          {user?.email === FEEDBACK_OWNER_EMAIL && <FeedbackAdminPanel />}
+          {user?.email === ADMIN_EMAIL && (
+            <>
+              <AdminTreesPanel />
+              <FeedbackAdminPanel />
+            </>
+          )}
 
           <Card className="p-5">
             <h2 className="mb-1 text-sm font-semibold text-red-600">{t('settings.dangerZone')}</h2>
