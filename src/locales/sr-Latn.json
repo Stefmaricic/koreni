@@ -178,5 +178,17 @@
     "unauthorized": "Nemate pristup ovom porodičnom stablu.",
     "generic": "Nešto nije u redu. Pokušajte ponovo.",
     "goToDashboard": "Idi na početnu"
+  },
+  "feedback": {
+    "button": "Prijavi problem / unapređenje",
+    "title": "Prijavi problem / unapređenje",
+    "subtitle": "Opišite šta ne radi kako treba, ili šta biste voleli da Koreni ume da radi.",
+    "placeholder": "Napišite ovde…",
+    "send": "Pošalji",
+    "sent": "Hvala! Poruka je poslata.",
+    "error": "Nismo mogli da pošaljemo poruku. Pokušajte ponovo.",
+    "adminTitle": "Primljene prijave",
+    "adminEmpty": "Još uvek nema prijava.",
+    "adminFrom": "{{email}} · {{page}}"
   }
 }

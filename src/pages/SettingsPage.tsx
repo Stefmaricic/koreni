@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { AppHeader } from '@/components/layout/AppHeader'
 import { LanguageSwitcher } from '@/components/layout/LanguageSwitcher'
+import { FeedbackAdminPanel } from '@/components/feedback/FeedbackAdminPanel'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { Input } from '@/components/ui/Input'
@@ -10,9 +11,16 @@ import { updatePassword } from '@/services/authService'
 import { useAuthStore } from '@/stores/authStore'
 import { toastError, useToastStore } from '@/stores/toastStore'
 
+// Must match the email in the feedback_select_owner RLS policy
+// (supabase/migrations/0003_feedback.sql) — this is just so the section
+// isn't rendered for other people; Supabase itself returns no rows to
+// anyone else regardless of this check.
+const FEEDBACK_OWNER_EMAIL = 'mstefan44@gmail.com'
+
 export function SettingsPage() {
   const { t } = useTranslation()
   const profile = useAuthStore((s) => s.profile)
+  const user = useAuthStore((s) => s.user)
   const refreshProfile = useAuthStore((s) => s.refreshProfile)
   const push = useToastStore((s) => s.push)
 
@@ -93,6 +101,8 @@ export function SettingsPage() {
               </Button>
             </form>
           </Card>
+
+          {user?.email === FEEDBACK_OWNER_EMAIL && <FeedbackAdminPanel />}
 
           <Card className="p-5">
             <h2 className="mb-1 text-sm font-semibold text-red-600">{t('settings.dangerZone')}</h2>

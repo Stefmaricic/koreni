@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { ErrorBoundary } from '@/components/layout/ErrorBoundary'
 import { ProtectedRoute } from '@/components/layout/ProtectedRoute'
 import { PublicOnlyRoute } from '@/components/layout/PublicOnlyRoute'
+import { FeedbackWidget } from '@/components/feedback/FeedbackWidget'
 import { ToastViewport } from '@/components/ui/ToastViewport'
 import { DashboardPage } from '@/pages/DashboardPage'
 import { ForgotPasswordPage } from '@/pages/ForgotPasswordPage'
@@ -36,6 +37,7 @@ export default function App() {
         <Route path="/404" element={<NotFoundPage />} />
         <Route path="*" element={<Navigate to="/404" replace />} />
       </Routes>
+      <FeedbackWidget />
       <ToastViewport />
     </ErrorBoundary>
   )

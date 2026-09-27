@@ -65,6 +65,15 @@ export type RelationshipRow = {
   created_at: string
 }
 
+export type FeedbackRow = {
+  id: string
+  user_id: string
+  user_email: string | null
+  message: string
+  page_path: string | null
+  created_at: string
+}
+
 export interface Database {
   public: {
     Tables: {
@@ -101,6 +110,12 @@ export interface Database {
           person_b_id: string
         }
         Update: Partial<RelationshipRow>
+        Relationships: []
+      }
+      feedback: {
+        Row: FeedbackRow
+        Insert: Partial<FeedbackRow> & { user_id: string; message: string }
+        Update: Partial<FeedbackRow>
         Relationships: []
       }
     }
