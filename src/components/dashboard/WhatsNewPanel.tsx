@@ -12,21 +12,23 @@ export function WhatsNewPanel() {
   const isCyrillic = i18n.resolvedLanguage === 'sr-Cyrl'
 
   return (
-    <Card className="p-4">
-      <h2 className="mb-2 text-sm font-semibold text-ink-700">{t('dashboard.whatsNew')}</h2>
-      <div className="max-h-56 overflow-y-auto pr-1">
-        <ul className="flex flex-col gap-3">
+    <Card className="p-3">
+      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-500">
+        {t('dashboard.whatsNew')}
+      </h2>
+      <div className="max-h-64 overflow-y-auto pr-1">
+        <div className="flex flex-col gap-3">
           {CHANGELOG.map((entry) => (
-            <li key={entry.date} className="flex gap-3 text-sm">
-              <span className="w-16 shrink-0 pt-0.5 text-xs text-ink-500">{formatShortDate(entry.date)}</span>
-              <ul className="flex-1 list-disc space-y-0.5 pl-4 text-ink-600">
+            <div key={entry.date}>
+              <span className="text-[11px] font-medium text-ink-500">{formatShortDate(entry.date)}</span>
+              <ul className="mt-1 list-disc space-y-1 pl-3.5 text-xs leading-snug text-ink-600">
                 {(isCyrillic ? entry.cyrl : entry.latn).map((line) => (
                   <li key={line}>{line}</li>
                 ))}
               </ul>
-            </li>
+            </div>
           ))}
-        </ul>
+        </div>
       </div>
     </Card>
   )

@@ -95,40 +95,42 @@ export function DashboardPage() {
           <Button onClick={() => setCreateOpen(true)}>+ {t('dashboard.newTree')}</Button>
         </div>
 
-        <div className="mb-6">
+        <div className="grid gap-6 lg:grid-cols-[220px_1fr] lg:items-start">
           <WhatsNewPanel />
-        </div>
 
-        {loading ? (
-          <div className="flex justify-center py-20">
-            <Spinner />
-          </div>
-        ) : trees.length === 0 ? (
-          <EmptyState
-            icon={<span className="text-4xl">🌳</span>}
-            title={t('dashboard.empty')}
-            body={t('dashboard.emptyCta')}
-            action={
-              <div className="mt-2 flex flex-wrap justify-center gap-2">
-                <Button onClick={() => setCreateOpen(true)}>+ {t('dashboard.newTree')}</Button>
-                <Button variant="secondary" loading={seedingDemo} onClick={handleTryDemo}>
-                  {t('dashboard.tryDemo')}
-                </Button>
+          <div>
+            {loading ? (
+              <div className="flex justify-center py-20">
+                <Spinner />
               </div>
-            }
-          />
-        ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {trees.map((tree) => (
-              <TreeCard
-                key={tree.id}
-                tree={tree}
-                onRename={() => setRenaming(tree)}
-                onDelete={() => setDeleting(tree)}
+            ) : trees.length === 0 ? (
+              <EmptyState
+                icon={<span className="text-4xl">🌳</span>}
+                title={t('dashboard.empty')}
+                body={t('dashboard.emptyCta')}
+                action={
+                  <div className="mt-2 flex flex-wrap justify-center gap-2">
+                    <Button onClick={() => setCreateOpen(true)}>+ {t('dashboard.newTree')}</Button>
+                    <Button variant="secondary" loading={seedingDemo} onClick={handleTryDemo}>
+                      {t('dashboard.tryDemo')}
+                    </Button>
+                  </div>
+                }
               />
-            ))}
+            ) : (
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                {trees.map((tree) => (
+                  <TreeCard
+                    key={tree.id}
+                    tree={tree}
+                    onRename={() => setRenaming(tree)}
+                    onDelete={() => setDeleting(tree)}
+                  />
+                ))}
+              </div>
+            )}
           </div>
-        )}
+        </div>
       </main>
 
       <TreeFormDialog
