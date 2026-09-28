@@ -119,9 +119,13 @@ export function TreeNode({
           <span className="line-clamp-2 shrink-0 text-sm font-semibold leading-tight text-ink-700">
             {personFullName(person) || t('tree.unknownName')}
           </span>
-          {year && (
+          {(year || deathYear) && (
             <span className="text-xs text-ink-500">
-              {deathYear ? t('tree.borndied', { birth: year, death: deathYear }) : t('tree.born', { year })}
+              {year && deathYear
+                ? t('tree.borndied', { birth: year, death: deathYear })
+                : year
+                  ? t('tree.born', { year })
+                  : t('tree.diedOnly', { year: deathYear })}
             </span>
           )}
         </button>

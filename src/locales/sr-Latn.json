@@ -103,6 +103,7 @@
     "unknownName": "Bez imena",
     "born": "r. {{year}}",
     "borndied": "{{birth}}–{{death}}",
+    "diedOnly": "u. {{year}}",
     "actionsFor": "Radnje za {{name}}",
     "viewProfile": "Pogledaj profil",
     "addParent": "Dodaj roditelja",

@@ -171,7 +171,13 @@ export function buildExportSvg(graph: FamilyGraph, style: TreeStyle, treeName: s
     const name = personFullName(person) || '—'
     const year = birthYear(person)
     const deathYear = person.deathDate ? new Date(person.deathDate).getFullYear() : null
-    const dateLabel = year ? (deathYear ? `${year}–${deathYear}` : `b. ${year}`) : ''
+    const dateLabel = year
+      ? deathYear
+        ? `${year}–${deathYear}`
+        : `b. ${year}`
+      : deathYear
+        ? `d. ${deathYear}`
+        : ''
 
     parts.push(
       `<rect x="${cardX}" y="${cardY}" width="${NODE_WIDTH}" height="${NODE_HEIGHT}" rx="16" fill="${PALETTE.cardBg}" stroke="${PALETTE.cardBorder}" />`,
