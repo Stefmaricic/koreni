@@ -112,6 +112,7 @@ export function TreeCanvas({
 
   const layout = useMemo(() => computeTreeLayout(graph, style), [graph, style])
   const peopleById = graph.people
+  const nodesById = useMemo(() => new Map(layout.nodes.map((n) => [n.personId, n])), [layout.nodes])
 
   const effectiveXY = useCallback(
     (personId: string, fallbackX: number, fallbackY: number) => {
@@ -150,6 +151,16 @@ export function TreeCanvas({
     setLiveOverrides((prev) => new Map(prev).set(personId, null))
     setPersonPosition(personId, null).catch((err) => toastError(err))
   }, [])
+
+  /** A specific person's child-facing anchor edge (their card's top in 'rooted', bottom in 'classic'), override-aware. */
+  const parentAnchor = useCallback(
+    (personId: string) => {
+      const raw = nodesById.get(personId)
+      const top = effectiveXY(personId, raw?.x ?? 0, raw?.y ?? 0)
+      return { x: top.x, y: style === 'classic' ? top.y + NODE_HEIGHT : top.y }
+    },
+    [nodesById, effectiveXY, style],
+  )
 
   const maxGeneration = useMemo(
     () => Math.max(0, ...layout.nodes.map((n) => n.generation)),
@@ -191,8 +202,13 @@ export function TreeCanvas({
             ))}
 
           {layout.partnerLines.map((line) => {
-            const a = effectiveXY(line.aId, line.aX, line.aY)
-            const b = effectiveXY(line.bId, line.bX, line.bY)
+            // line.aY/bY are each person's vertical midpoint, but a manual
+            // override is stored as the card's top-left -- convert through
+            // top-left around the lookup, same as the child-link fix below.
+            const aTop = effectiveXY(line.aId, line.aX, line.aY - NODE_HEIGHT / 2)
+            const bTop = effectiveXY(line.bId, line.bX, line.bY - NODE_HEIGHT / 2)
+            const a = { x: aTop.x, y: aTop.y + NODE_HEIGHT / 2 }
+            const b = { x: bTop.x, y: bTop.y + NODE_HEIGHT / 2 }
             return (
               <path
                 key={line.id}
@@ -212,17 +228,16 @@ export function TreeCanvas({
               maxGeneration ? link.childGeneration / maxGeneration : 0,
             )
             const strokeWidth = link.primary ? Math.max(2, 6 - link.childGeneration * 0.7) : 1.5
-            // link.parentY/childY are the pre-computed *anchor edges* (which
-            // physical edge of the card faces the other person flips between
-            // 'classic' and 'rooted', since the whole canvas is mirrored
-            // vertically) -- convert to/from plain top-left Y around the
-            // override lookup so a dragged card's edge comes out right in
-            // either style, instead of assuming one fixed edge.
-            const parentTopFallback = link.parentY - (style === 'classic' ? NODE_HEIGHT : 0)
+            // Average both parents' anchor points when the child has two
+            // (a couple), so the branch leaves from the line between them
+            // instead of fanning toward whichever one the layout favored.
+            const parentPoints = link.parentIds.map(parentAnchor)
+            const parent = {
+              x: parentPoints.reduce((sum, p) => sum + p.x, 0) / parentPoints.length,
+              y: parentPoints.reduce((sum, p) => sum + p.y, 0) / parentPoints.length,
+            }
             const childTopFallback = link.childY - (style === 'classic' ? 0 : NODE_HEIGHT)
-            const parentTop = effectiveXY(link.parentId, link.parentX, parentTopFallback)
             const childTop = effectiveXY(link.childId, link.childX, childTopFallback)
-            const parent = { x: parentTop.x, y: style === 'classic' ? parentTop.y + NODE_HEIGHT : parentTop.y }
             const child = { x: childTop.x, y: style === 'classic' ? childTop.y : childTop.y + NODE_HEIGHT }
             return (
               <path

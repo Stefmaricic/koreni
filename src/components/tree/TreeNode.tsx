@@ -39,20 +39,31 @@ export function TreeNode({
   const year = birthYear(person)
   const deathYear = person.deathDate ? new Date(person.deathDate).getFullYear() : null
 
-  const dragRef = useRef<{ startClientX: number; startClientY: number; startX: number; startY: number; moved: boolean } | null>(null)
+  const dragRef = useRef<{
+    startClientX: number
+    startClientY: number
+    startX: number
+    startY: number
+    startScale: number
+    moved: boolean
+  } | null>(null)
 
   const handlePointerDown = (e: React.PointerEvent) => {
     e.stopPropagation()
     ;(e.target as Element).setPointerCapture(e.pointerId)
-    dragRef.current = { startClientX: e.clientX, startClientY: e.clientY, startX: x, startY: y, moved: false }
+    // Freeze the zoom level for this whole gesture: if it changed mid-drag
+    // (a trackpad pinch or wheel-zoom firing alongside the drag), computing
+    // deltas against the *current* scale each frame threw the position wildly
+    // off since the drag's start position was captured at the old scale.
+    dragRef.current = { startClientX: e.clientX, startClientY: e.clientY, startX: x, startY: y, startScale: scale, moved: false }
   }
 
   const handlePointerMove = (e: React.PointerEvent) => {
     const drag = dragRef.current
     if (!drag) return
     e.stopPropagation()
-    const dx = (e.clientX - drag.startClientX) / scale
-    const dy = (e.clientY - drag.startClientY) / scale
+    const dx = (e.clientX - drag.startClientX) / drag.startScale
+    const dy = (e.clientY - drag.startClientY) / drag.startScale
     if (!drag.moved && Math.hypot(e.clientX - drag.startClientX, e.clientY - drag.startClientY) > DRAG_THRESHOLD) {
       drag.moved = true
     }
@@ -65,8 +76,8 @@ export function TreeNode({
     e.stopPropagation()
     dragRef.current = null
     if (drag.moved) {
-      const dx = (e.clientX - drag.startClientX) / scale
-      const dy = (e.clientY - drag.startClientY) / scale
+      const dx = (e.clientX - drag.startClientX) / drag.startScale
+      const dy = (e.clientY - drag.startClientY) / drag.startScale
       onDragEnd?.(person.id, drag.startX + dx, drag.startY + dy)
     } else {
       onSelect(person.id)

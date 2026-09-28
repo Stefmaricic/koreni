@@ -27,16 +27,19 @@ export interface PartnerLine {
 }
 
 /**
- * One parent -> child relationship, drawn as its own curve. `primary` marks
- * whether this edge lies along the child's chosen bloodline (the one that
- * determined their position in the tree) or is a secondary/reconvergent
- * link (e.g. a second recorded parent-unit, or a cousin-marriage loop) that
- * should render as a subtle, thinner, dashed connector instead of steering
- * the layout.
+ * One parent-unit -> child curve. When both parents of a child are partnered
+ * (the common case), `parentIds` holds both of them and the branch leaves
+ * from their shared midpoint -- the "line between the parents" -- rather
+ * than fanning toward one specific parent, so a child never visually reads
+ * as belonging to just one side of a couple. `primary` marks whether this
+ * edge lies along the child's chosen bloodline (the one that determined
+ * their position in the tree) or is a secondary/reconvergent link (e.g. a
+ * second recorded parent-unit, or a cousin-marriage loop) that should render
+ * as a subtle, thinner, dashed connector instead of steering the layout.
  */
 export interface ChildLink {
   id: string
-  parentId: string
+  parentIds: string[]
   childId: string
   parentX: number
   parentY: number
@@ -335,44 +338,46 @@ export function computeTreeLayout(graph: FamilyGraph, style: TreeStyle = 'classi
     })
   }
 
-  // ---- 8. Child links: one curve per parent -> child relationship --------
-  // Distribute a unit's outgoing links across the unit's own width (instead
-  // of always leaving from dead-center) so several children fan out from
-  // slightly different points, the way real branches leave a trunk.
-  const childLinks: ChildLink[] = []
+  // ---- 8. Child links: one curve per (parent unit -> child) --------------
+  // Two "parent" relationship rows (mom->child, dad->child) collapse into a
+  // single branch here whenever both parents are the same partnered unit, so
+  // a child always reads as belonging to the couple together rather than
+  // fanning toward whichever specific parent the fan-out math favored.
+  const childUnitByParentUnit = new Map<string, Set<string>>() // parentUnitId -> childIds
   for (const rel of graph.relationships) {
     if (rel.type !== 'parent') continue
-    const parentId = rel.personAId
+    const parentUnitId = unitOfPerson.get(rel.personAId)
     const childId = rel.personBId
-    const parentUnitId = unitOfPerson.get(parentId)
-    const childUnitId = unitOfPerson.get(childId)
-    if (!parentUnitId || !childUnitId) continue
-    const parentUnit = units.get(parentUnitId)!
-    const childUnit = units.get(childUnitId)!
-    const childX = nodeX.get(childId)
-    const childY = nodeY.get(childId)
-    if (childX === undefined || childY === undefined) continue
+    if (!parentUnitId || !unitOfPerson.has(childId)) continue
+    if (!childUnitByParentUnit.has(parentUnitId)) childUnitByParentUnit.set(parentUnitId, new Set())
+    childUnitByParentUnit.get(parentUnitId)!.add(childId)
+  }
 
-    const siblingSlots = parentUnit.primaryChildUnitIds.length || 1
-    const slotIndex = Math.max(0, parentUnit.primaryChildUnitIds.indexOf(childUnitId))
-    const spread = Math.min(parentUnit.width * 0.7, siblingSlots > 1 ? parentUnit.width * 0.7 : 0)
-    const parentX =
-      parentUnit.leftX +
-      parentUnit.width / 2 +
-      (siblingSlots > 1 ? (slotIndex / (siblingSlots - 1) - 0.5) * spread : 0)
+  const childLinks: ChildLink[] = []
+  for (const [parentUnitId, childIds] of childUnitByParentUnit) {
+    const parentUnit = units.get(parentUnitId)!
+    const parentX = parentUnit.leftX + parentUnit.width / 2
     const parentY = parentUnit.generation * (NODE_HEIGHT + GENERATION_GAP) + NODE_HEIGHT
 
-    childLinks.push({
-      id: rel.id,
-      parentId,
-      childId,
-      parentX,
-      parentY,
-      childX,
-      childY,
-      primary: childUnit.primaryParentUnitId === parentUnitId,
-      childGeneration: childUnit.generation,
-    })
+    for (const childId of childIds) {
+      const childUnitId = unitOfPerson.get(childId)!
+      const childUnit = units.get(childUnitId)!
+      const childX = nodeX.get(childId)
+      const childY = nodeY.get(childId)
+      if (childX === undefined || childY === undefined) continue
+
+      childLinks.push({
+        id: `${parentUnitId}->${childId}`,
+        parentIds: [...parentUnit.memberIds],
+        childId,
+        parentX,
+        parentY,
+        childX,
+        childY,
+        primary: childUnit.primaryParentUnitId === parentUnitId,
+        childGeneration: childUnit.generation,
+      })
+    }
   }
 
   // ---- 9. Root anchors (one small trunk graphic per founding lineage) ---
