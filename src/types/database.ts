@@ -87,6 +87,20 @@ export type TreeInviteRow = {
   revoked: boolean
 }
 
+export type ActivityAction = 'person_added' | 'person_updated' | 'person_removed'
+
+export type ActivityFieldDiff = Record<string, { old: unknown; new: unknown }>
+
+export type ActivityLogRow = {
+  id: string
+  tree_id: string
+  actor_id: string | null
+  action: ActivityAction
+  person_name: string
+  details: ActivityFieldDiff | null
+  created_at: string
+}
+
 // Real foreign-key metadata, not just `[]` placeholders: supabase-js's typed
 // query builder uses these to resolve embeds like `family_members(count)` or
 // `profiles(display_name)` inside a .select() string. Leaving this empty
@@ -154,6 +168,12 @@ export interface Database {
         Insert: Partial<TreeInviteRow> & { tree_id: string; role: MembershipRole; token: string; created_by: string }
         Update: Partial<TreeInviteRow>
         Relationships: [FkTo<'family_trees', ['tree_id']>, FkTo<'profiles', ['created_by']>]
+      }
+      activity_log: {
+        Row: ActivityLogRow
+        Insert: Partial<ActivityLogRow> & { tree_id: string; action: ActivityAction; person_name: string }
+        Update: Partial<ActivityLogRow>
+        Relationships: [FkTo<'family_trees', ['tree_id']>, FkTo<'profiles', ['actor_id']>]
       }
     }
     Views: Record<string, never>

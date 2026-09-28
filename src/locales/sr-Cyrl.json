@@ -140,7 +140,16 @@
     "shareRevoke": "Опозови",
     "shareRevoked": "Позив је опозван.",
     "shareExpiresAt": "Истиче {{date}}",
-    "shareCreateError": "Нисмо могли да направимо позив. Покушајте поново."
+    "shareCreateError": "Нисмо могли да направимо позив. Покушајте поново.",
+    "shareRemoveMember": "Уклони",
+    "shareRemoveConfirmTitle": "Уклони члана",
+    "shareRemoveConfirmBody": "Да ли сте сигурни да желите да уклоните {{name}} са овог породичног стабла? Изгубиће приступ одмах.",
+    "shareRemoved": "Члан је уклоњен са стабла.",
+    "shareRemoveError": "Нисмо могли да уклонимо члана. Покушајте поново.",
+    "history": "Историја измена",
+    "historyTitle": "Историја измена",
+    "historyEmpty": "Још увек нема забележених измена.",
+    "historyLoadError": "Нисмо могли да учитамо историју измена."
   },
   "invite": {
     "title": "Позивница за породично стабло",
@@ -183,6 +192,23 @@
     "siblings": "Браћа и сестре",
     "noRelatives": "Још увек нико није повезан.",
     "saveError": "Нисмо могли да сачувамо ову особу. Покушајте поново."
+  },
+  "activity": {
+    "unknownActor": "Непознат корисник",
+    "personAdded": "{{actor}} — додата особа „{{name}}“",
+    "personRemoved": "{{actor}} — уклоњена особа „{{name}}“",
+    "personUpdated": "{{actor}} — измењено код особе „{{name}}“: {{fields}}",
+    "field": {
+      "firstName": "име",
+      "lastName": "презиме",
+      "maidenName": "девојачко презиме",
+      "gender": "пол",
+      "birthDate": "датум рођења",
+      "birthPlace": "место рођења",
+      "deathDate": "датум смрти",
+      "deathPlace": "место смрти",
+      "bio": "биографија"
+    }
   },
   "relations": {
     "parent": "родитеља",

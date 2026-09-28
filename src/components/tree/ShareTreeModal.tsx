@@ -2,12 +2,14 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Avatar } from '@/components/ui/Avatar'
 import { Button } from '@/components/ui/Button'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { Modal } from '@/components/ui/Modal'
 import { Select } from '@/components/ui/Input'
 import {
   createInvite,
   listInvites,
   listTreeMembers,
+  removeMember,
   revokeInvite,
   type InviteRole,
   type TreeMemberSummary,
@@ -40,6 +42,8 @@ export function ShareTreeModal({ open, onClose, treeId }: ShareTreeModalProps) {
   const [invites, setInvites] = useState<TreeInviteRow[] | null>(null)
   const [role, setRole] = useState<InviteRole>('editor')
   const [generating, setGenerating] = useState(false)
+  const [removing, setRemoving] = useState<TreeMemberSummary | null>(null)
+  const [removeBusy, setRemoveBusy] = useState(false)
 
   useEffect(() => {
     if (!open) return
@@ -81,6 +85,21 @@ export function ShareTreeModal({ open, onClose, treeId }: ShareTreeModalProps) {
     }
   }
 
+  const handleRemove = async () => {
+    if (!removing) return
+    setRemoveBusy(true)
+    try {
+      await removeMember(treeId, removing.userId)
+      setMembers((prev) => prev?.filter((m) => m.userId !== removing.userId) ?? null)
+      setRemoving(null)
+      push(t('tree.shareRemoved'), 'success')
+    } catch (err) {
+      toastError(err, t('tree.shareRemoveError'))
+    } finally {
+      setRemoveBusy(false)
+    }
+  }
+
   const activeInvites = invites?.filter(isActiveInvite) ?? []
 
   const roleOptions: { value: InviteRole; label: string }[] = [
@@ -101,6 +120,15 @@ export function ShareTreeModal({ open, onClose, treeId }: ShareTreeModalProps) {
                 <span className="rounded-full bg-cream-100 px-2.5 py-0.5 text-xs font-medium text-ink-600">
                   {t(roleLabelKey(member.role))}
                 </span>
+                {member.role !== 'owner' && member.userId !== userId && (
+                  <button
+                    type="button"
+                    onClick={() => setRemoving(member)}
+                    className="rounded-full px-2 py-1 text-xs font-medium text-red-600 hover:bg-cream-100"
+                  >
+                    {t('tree.shareRemoveMember')}
+                  </button>
+                )}
               </div>
             ))}
           </div>
@@ -155,6 +183,17 @@ export function ShareTreeModal({ open, onClose, treeId }: ShareTreeModalProps) {
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        open={Boolean(removing)}
+        title={t('tree.shareRemoveConfirmTitle')}
+        body={t('tree.shareRemoveConfirmBody', { name: removing?.displayName ?? t('common.unknown') })}
+        confirmLabel={t('tree.shareRemoveMember')}
+        danger
+        loading={removeBusy}
+        onConfirm={handleRemove}
+        onCancel={() => setRemoving(null)}
+      />
     </Modal>
   )
 }

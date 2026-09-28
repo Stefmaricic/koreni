@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import { ActivityLogModal } from '@/components/tree/ActivityLogModal'
 import { ExportTreeModal } from '@/components/tree/ExportTreeModal'
 import { ShareTreeModal } from '@/components/tree/ShareTreeModal'
 import { FeedbackModal } from '@/components/feedback/FeedbackModal'
@@ -46,6 +47,7 @@ export function TreePage() {
   const [exportOpen, setExportOpen] = useState(false)
   const [feedbackOpen, setFeedbackOpen] = useState(false)
   const [shareOpen, setShareOpen] = useState(false)
+  const [historyOpen, setHistoryOpen] = useState(false)
 
   const searchResults = useMemo(() => {
     if (!search.trim()) return []
@@ -204,6 +206,21 @@ export function TreePage() {
           </button>
         )}
 
+        {role !== null && (
+          <button
+            onClick={() => setHistoryOpen(true)}
+            aria-label={t('tree.history')}
+            title={t('tree.history')}
+            className="rounded-full p-2 text-ink-600 hover:bg-cream-100"
+          >
+            <svg width="19" height="19" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.8}>
+              <path d="M4 10a6 6 0 106-6" strokeLinecap="round" />
+              <path d="M4 4v4h4" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M10 7v3.5l2.5 1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+        )}
+
         {role === 'owner' && (
           <button
             onClick={() => setShareOpen(true)}
@@ -301,6 +318,8 @@ export function TreePage() {
       <FeedbackModal open={feedbackOpen} onClose={() => setFeedbackOpen(false)} />
 
       {treeId && <ShareTreeModal open={shareOpen} onClose={() => setShareOpen(false)} treeId={treeId} />}
+
+      {treeId && <ActivityLogModal open={historyOpen} onClose={() => setHistoryOpen(false)} treeId={treeId} />}
 
       <ConfirmDialog
         open={sheet?.mode === 'delete'}
