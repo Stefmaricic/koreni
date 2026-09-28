@@ -110,7 +110,7 @@ export function TreeCanvas({
         containerRef.current = el
         wheelTargetRef.current = el
       }}
-      className="relative h-full w-full touch-none overflow-hidden bg-cream-100"
+      className="relative h-full w-full touch-none select-none overflow-hidden bg-cream-100"
       style={{
         backgroundImage: 'radial-gradient(circle, var(--color-cream-300) 1px, transparent 1px)',
         backgroundSize: '24px 24px',
