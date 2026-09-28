@@ -40,6 +40,31 @@ export async function removeMember(treeId: string, userId: string): Promise<void
   if (error) throw error
 }
 
+/** Owner-only (enforced by tree_memberships_update_owner RLS): change an existing member between editor/viewer. Never grants 'owner' through this path. */
+export async function updateMemberRole(treeId: string, userId: string, role: InviteRole): Promise<void> {
+  const { error } = await supabase.from('tree_memberships').update({ role }).eq('tree_id', treeId).eq('user_id', userId)
+  if (error) throw error
+}
+
+/** The family_members.id values already claimed by *some* member of this tree (not who claimed them) — used to exclude them from the "who are you" picker. */
+export async function listClaimedPersonIds(treeId: string): Promise<string[]> {
+  const { data, error } = await supabase.rpc('list_claimed_person_ids', { p_tree_id: treeId })
+  if (error) throw error
+  return data ?? []
+}
+
+/** Self-service: caller claims a person as themself. Only works while the caller's role is 'editor'. */
+export async function claimPerson(treeId: string, personId: string): Promise<void> {
+  const { error } = await supabase.rpc('claim_person', { p_tree_id: treeId, p_person_id: personId })
+  if (error) throw error
+}
+
+/** Self-service: "that's not me" — downgrades the caller's own role from editor to viewer. */
+export async function declineIdentityClaim(treeId: string): Promise<void> {
+  const { error } = await supabase.rpc('decline_identity_claim', { p_tree_id: treeId })
+  if (error) throw error
+}
+
 interface MemberRow {
   user_id: string
   role: MembershipRole

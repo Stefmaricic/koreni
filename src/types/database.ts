@@ -35,6 +35,7 @@ export type TreeMembershipRow = {
   tree_id: string
   user_id: string
   role: MembershipRole
+  claimed_person_id: string | null
   created_at: string
 }
 
@@ -154,7 +155,11 @@ export interface Database {
         Row: TreeMembershipRow
         Insert: Partial<TreeMembershipRow> & { tree_id: string; user_id: string }
         Update: Partial<TreeMembershipRow>
-        Relationships: [FkTo<'family_trees', ['tree_id']>, FkTo<'profiles', ['user_id']>]
+        Relationships: [
+          FkTo<'family_trees', ['tree_id']>,
+          FkTo<'profiles', ['user_id']>,
+          FkTo<'family_members', ['claimed_person_id']>,
+        ]
       }
       family_members: {
         Row: FamilyMemberRow
@@ -211,6 +216,26 @@ export interface Database {
       redeem_invite: {
         Args: { p_token: string }
         Returns: string
+      }
+      get_edit_scope: {
+        Args: { p_tree_id: string }
+        Returns: { person_id: string }[]
+      }
+      can_edit_person: {
+        Args: { p_person_id: string }
+        Returns: boolean
+      }
+      list_claimed_person_ids: {
+        Args: { p_tree_id: string }
+        Returns: string[]
+      }
+      claim_person: {
+        Args: { p_tree_id: string; p_person_id: string }
+        Returns: undefined
+      }
+      decline_identity_claim: {
+        Args: { p_tree_id: string }
+        Returns: undefined
       }
     }
   }

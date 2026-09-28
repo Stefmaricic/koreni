@@ -39,6 +39,11 @@ export async function getTree(treeId: string) {
   return data
 }
 
+export interface MyMembership {
+  role: FamilyTreeSummary['myRole']
+  claimedPersonId: string | null
+}
+
 /**
  * Null means "not a member" rather than an error — this also covers the app
  * owner opening someone else's tree from the admin panel: RLS still lets
@@ -46,15 +51,16 @@ export async function getTree(treeId: string) {
  * with no membership row they correctly fall back to a read-only view
  * instead of the page erroring out.
  */
-export async function getMyRole(treeId: string, userId: string) {
+export async function getMyMembership(treeId: string, userId: string): Promise<MyMembership | null> {
   const { data, error } = await supabase
     .from('tree_memberships')
-    .select('role')
+    .select('role, claimed_person_id')
     .eq('tree_id', treeId)
     .eq('user_id', userId)
     .maybeSingle()
   if (error) throw error
-  return data?.role ?? null
+  if (!data) return null
+  return { role: data.role, claimedPersonId: data.claimed_person_id }
 }
 
 export interface AdminTreeSummary {
