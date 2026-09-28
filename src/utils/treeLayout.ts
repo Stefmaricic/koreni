@@ -1,7 +1,7 @@
 import type { FamilyGraph } from '@/utils/familyGraph'
 
 export const NODE_WIDTH = 128
-export const NODE_HEIGHT = 156
+export const NODE_HEIGHT = 172
 export const PARTNER_GAP = 20
 export const UNIT_GAP = 44
 export const GENERATION_GAP = 110

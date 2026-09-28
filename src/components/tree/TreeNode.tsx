@@ -26,14 +26,16 @@ export function TreeNode({ person, x, y, selected, onSelect }: TreeNodeProps) {
           selected ? 'border-root-500 ring-2 ring-root-200' : 'border-cream-200'
         }`}
       >
-        <Avatar
-          photoUrl={person.photoUrl}
-          firstName={person.firstName}
-          lastName={person.lastName}
-          gender={person.gender}
-          size="lg"
-        />
-        <span className="line-clamp-2 text-sm font-semibold leading-tight text-ink-700">
+        <div className="shrink-0">
+          <Avatar
+            photoUrl={person.photoUrl}
+            firstName={person.firstName}
+            lastName={person.lastName}
+            gender={person.gender}
+            size="lg"
+          />
+        </div>
+        <span className="line-clamp-2 shrink-0 text-sm font-semibold leading-tight text-ink-700">
           {personFullName(person) || t('tree.unknownName')}
         </span>
         {year && (
