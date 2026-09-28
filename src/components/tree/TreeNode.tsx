@@ -17,6 +17,8 @@ interface TreeNodeProps {
   onDragMove?: (personId: string, x: number, y: number) => void
   onDragEnd?: (personId: string, x: number, y: number) => void
   onResetPosition?: (personId: string) => void
+  /** True when the current viewer is a scoped editor who can edit this specific person. Never set for an owner/admin — they see every card the same, no tint (per spec). */
+  editable?: boolean
 }
 
 /** Below this many client pixels of movement, a press-and-release still counts as a select click, not a drag. */
@@ -34,6 +36,7 @@ export function TreeNode({
   onDragMove,
   onDragEnd,
   onResetPosition,
+  editable = false,
 }: TreeNodeProps) {
   const { t } = useTranslation()
   const year = birthYear(person)
@@ -105,7 +108,7 @@ export function TreeNode({
             arrangeMode ? 'cursor-grab active:cursor-grabbing' : 'hover:-translate-y-0.5 hover:shadow-md'
           } ${selected ? 'border-root-500 ring-2 ring-root-200' : 'border-cream-200'} ${
             arrangeMode && hasOverride ? 'border-earth-400' : ''
-          }`}
+          } ${editable && !selected ? 'ring-2 ring-green-400 shadow-[0_0_12px_2px_rgba(34,197,94,0.55)]' : ''}`}
         >
           <div className="shrink-0">
             <Avatar

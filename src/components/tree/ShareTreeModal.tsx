@@ -11,6 +11,7 @@ import {
   listTreeMembers,
   removeMember,
   revokeInvite,
+  updateMemberRole,
   type InviteRole,
   type TreeMemberSummary,
 } from '@/services/inviteService'
@@ -44,6 +45,7 @@ export function ShareTreeModal({ open, onClose, treeId }: ShareTreeModalProps) {
   const [generating, setGenerating] = useState(false)
   const [removing, setRemoving] = useState<TreeMemberSummary | null>(null)
   const [removeBusy, setRemoveBusy] = useState(false)
+  const [changingRoleFor, setChangingRoleFor] = useState<string | null>(null)
 
   useEffect(() => {
     if (!open) return
@@ -85,6 +87,20 @@ export function ShareTreeModal({ open, onClose, treeId }: ShareTreeModalProps) {
     }
   }
 
+  const handleRoleChange = async (member: TreeMemberSummary, newRole: InviteRole) => {
+    if (newRole === member.role) return
+    setChangingRoleFor(member.userId)
+    try {
+      await updateMemberRole(treeId, member.userId, newRole)
+      setMembers((prev) => prev?.map((m) => (m.userId === member.userId ? { ...m, role: newRole } : m)) ?? null)
+      push(t('tree.shareRoleChanged'), 'success')
+    } catch (err) {
+      toastError(err, t('tree.shareRoleChangeError'))
+    } finally {
+      setChangingRoleFor(null)
+    }
+  }
+
   const handleRemove = async () => {
     if (!removing) return
     setRemoveBusy(true)
@@ -117,9 +133,24 @@ export function ShareTreeModal({ open, onClose, treeId }: ShareTreeModalProps) {
               <div key={member.userId} className="flex items-center gap-2.5">
                 <Avatar firstName={member.displayName ?? undefined} size="sm" />
                 <span className="flex-1 text-sm text-ink-700">{member.displayName ?? t('common.unknown')}</span>
-                <span className="rounded-full bg-cream-100 px-2.5 py-0.5 text-xs font-medium text-ink-600">
-                  {t(roleLabelKey(member.role))}
-                </span>
+                {member.role === 'owner' ? (
+                  <span className="rounded-full bg-cream-100 px-2.5 py-0.5 text-xs font-medium text-ink-600">
+                    {t(roleLabelKey(member.role))}
+                  </span>
+                ) : (
+                  <select
+                    value={member.role}
+                    disabled={changingRoleFor === member.userId}
+                    onChange={(e) => handleRoleChange(member, e.target.value as InviteRole)}
+                    className="rounded-full border border-cream-300 bg-cream-50 px-2.5 py-1 text-xs font-medium text-ink-600 focus:border-root-400 focus:outline-none focus:ring-2 focus:ring-root-200 disabled:opacity-60"
+                  >
+                    {roleOptions.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                )}
                 {member.role !== 'owner' && member.userId !== userId && (
                   <button
                     type="button"

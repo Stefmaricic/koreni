@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ActivityLogModal } from '@/components/tree/ActivityLogModal'
+import { ClaimIdentityModal } from '@/components/tree/ClaimIdentityModal'
 import { ExportTreeModal } from '@/components/tree/ExportTreeModal'
 import { ShareTreeModal } from '@/components/tree/ShareTreeModal'
 import { FeedbackModal } from '@/components/feedback/FeedbackModal'
@@ -37,7 +38,7 @@ export function TreePage() {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const userId = useAuthStore((s) => s.user?.id)
-  const { tree, graph, role, canEdit, loading, error, refresh } = useTreeData(treeId)
+  const { tree, graph, role, canEdit, canEditPerson, needsIdentityClaim, loading, error, refresh } = useTreeData(treeId)
 
   const [sheet, setSheet] = useState<SheetState>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -48,6 +49,8 @@ export function TreePage() {
   const [feedbackOpen, setFeedbackOpen] = useState(false)
   const [shareOpen, setShareOpen] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
+  const [claimDismissed, setClaimDismissed] = useState(false)
+  const claimModalOpen = needsIdentityClaim && !claimDismissed
 
   const searchResults = useMemo(() => {
     if (!search.trim()) return []
@@ -165,6 +168,15 @@ export function TreePage() {
               {t('tree.adminPreview')}
             </span>
           )}
+          {needsIdentityClaim && (
+            <button
+              type="button"
+              onClick={() => setClaimDismissed(false)}
+              className="shrink-0 rounded-full bg-root-100 px-2 py-0.5 text-xs font-medium text-root-700 hover:bg-root-200 dark:bg-root-900/50 dark:text-root-300"
+            >
+              {t('tree.claimBadge')}
+            </button>
+          )}
         </h1>
 
         <div className="relative w-40 sm:w-64">
@@ -237,7 +249,7 @@ export function TreePage() {
           </button>
         )}
 
-        {canEdit && (
+        {role === 'owner' && (
           <button
             onClick={() => setSheet({ mode: 'create' })}
             className="rounded-full bg-root-600 px-3.5 py-1.5 text-sm font-medium text-white hover:bg-root-700"
@@ -258,13 +270,15 @@ export function TreePage() {
           onAddFirstPerson={() => setSheet({ mode: 'create' })}
           onOpenFeedback={() => setFeedbackOpen(true)}
           canEdit={canEdit}
+          canEditPerson={canEditPerson}
+          showEditableTint={role === 'editor'}
         />
       </div>
 
       <PersonActionSheet
         open={sheet?.mode === 'actions'}
         person={sheet?.mode === 'actions' ? graph.people.get(sheet.personId) ?? null : null}
-        canEdit={canEdit}
+        canEdit={sheet?.mode === 'actions' && canEditPerson(sheet.personId)}
         onClose={() => setSheet(null)}
         onViewProfile={() => sheet?.mode === 'actions' && setSheet({ mode: 'profile', personId: sheet.personId })}
         onEdit={() => sheet?.mode === 'actions' && setSheet({ mode: 'edit', personId: sheet.personId })}
@@ -276,7 +290,7 @@ export function TreePage() {
         open={sheet?.mode === 'profile'}
         person={sheet?.mode === 'profile' ? graph.people.get(sheet.personId) ?? null : null}
         graph={graph}
-        canEdit={canEdit}
+        canEdit={sheet?.mode === 'profile' && canEditPerson(sheet.personId)}
         onClose={() => setSheet(null)}
         onEdit={() => sheet?.mode === 'profile' && setSheet({ mode: 'edit', personId: sheet.personId })}
         onDelete={() => sheet?.mode === 'profile' && setSheet({ mode: 'delete', personId: sheet.personId })}
@@ -322,6 +336,19 @@ export function TreePage() {
       {treeId && <ShareTreeModal open={shareOpen} onClose={() => setShareOpen(false)} treeId={treeId} />}
 
       {treeId && <ActivityLogModal open={historyOpen} onClose={() => setHistoryOpen(false)} treeId={treeId} />}
+
+      {treeId && (
+        <ClaimIdentityModal
+          open={claimModalOpen}
+          onClose={() => setClaimDismissed(true)}
+          treeId={treeId}
+          people={[...graph.people.values()]}
+          onResolved={async () => {
+            setClaimDismissed(false)
+            await refresh()
+          }}
+        />
+      )}
 
       <ConfirmDialog
         open={sheet?.mode === 'delete'}

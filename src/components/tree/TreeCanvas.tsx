@@ -33,6 +33,10 @@ interface TreeCanvasProps {
   onAddFirstPerson: () => void
   onOpenFeedback: () => void
   canEdit: boolean
+  /** Per-person edit check (owner: everyone; scoped editor: their computed region; viewer: no one). */
+  canEditPerson: (personId: string) => boolean
+  /** Only true for a scoped editor -- an owner/admin never gets the green tint, they see every card the same. */
+  showEditableTint: boolean
 }
 
 function IconButton({ label, active, onClick, children }: { label: string; active?: boolean; onClick: () => void; children: React.ReactNode }) {
@@ -85,6 +89,8 @@ export function TreeCanvas({
   onAddFirstPerson,
   onOpenFeedback,
   canEdit,
+  canEditPerson,
+  showEditableTint,
 }: TreeCanvasProps) {
   const { t } = useTranslation()
   const containerRef = useRef<HTMLDivElement>(null)
@@ -275,7 +281,7 @@ export function TreeCanvas({
             return (
               <g key={line.id}>
                 <path d={d} stroke="var(--color-earth-300)" strokeWidth={2} fill="none" strokeLinecap="round" />
-                {arrangeMode && canEdit && (
+                {arrangeMode && canEdit && (canEditPerson(line.aId) || canEditPerson(line.bId)) && (
                   <path
                     d={d}
                     stroke="black"
@@ -343,7 +349,7 @@ export function TreeCanvas({
                   opacity={link.primary ? 1 : 0.6}
                   fill="none"
                 />
-                {arrangeMode && canEdit && (
+                {arrangeMode && canEdit && (canEditPerson(link.childId) || link.parentIds.some(canEditPerson)) && (
                   <path
                     d={d}
                     stroke="black"
@@ -385,12 +391,13 @@ export function TreeCanvas({
                 y={pos.y}
                 selected={node.personId === selectedId}
                 onSelect={onSelectPerson}
-                arrangeMode={arrangeMode}
+                arrangeMode={arrangeMode && canEditPerson(node.personId)}
                 scale={transform.scale}
                 hasOverride={hasOverride(node.personId)}
                 onDragMove={handleDragMove}
                 onDragEnd={handleDragEnd}
                 onResetPosition={handleResetPosition}
+                editable={showEditableTint && canEditPerson(node.personId)}
               />
             )
           })}
