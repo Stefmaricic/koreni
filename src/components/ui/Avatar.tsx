@@ -35,6 +35,8 @@ export function Avatar({ photoUrl, firstName, lastName, gender = 'unknown', size
       <img
         src={photoUrl}
         alt=""
+        draggable={false}
+        onDragStart={(e) => e.preventDefault()}
         className={clsx('rounded-full object-cover ring-2 ring-white', sizeClasses[size])}
       />
     )

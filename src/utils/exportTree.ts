@@ -145,10 +145,11 @@ export function buildExportSvg(graph: FamilyGraph, style: TreeStyle, treeName: s
 
   const maxGeneration = Math.max(0, ...layout.nodes.map((n) => n.generation))
   const nodesById = new Map(layout.nodes.map((n) => [n.personId, n]))
-  const parentAnchor = (personId: string) => {
+  const parentAnchor = (personId: string, useMidpoint: boolean) => {
     const raw = nodesById.get(personId)
     const top = effectiveXY(personId, raw?.x ?? 0, raw?.y ?? 0)
-    return { x: top.x, y: style === 'classic' ? top.y + NODE_HEIGHT : top.y }
+    const y = useMidpoint ? top.y + NODE_HEIGHT / 2 : style === 'classic' ? top.y + NODE_HEIGHT : top.y
+    return { x: top.x, y }
   }
 
   for (const link of layout.childLinks) {
@@ -156,7 +157,8 @@ export function buildExportSvg(graph: FamilyGraph, style: TreeStyle, treeName: s
     const strokeWidth = link.primary ? Math.max(2, 6 - link.childGeneration * 0.7) : 1.5
     const dash = link.primary ? '' : ' stroke-dasharray="2 5"'
     const opacity = link.primary ? 1 : 0.6
-    const parentPoints = link.parentIds.map(parentAnchor)
+    const useMidpoint = link.parentIds.length > 1
+    const parentPoints = link.parentIds.map((pid) => parentAnchor(pid, useMidpoint))
     const parent = {
       x: parentPoints.reduce((sum, p) => sum + p.x, 0) / parentPoints.length,
       y: parentPoints.reduce((sum, p) => sum + p.y, 0) / parentPoints.length,

@@ -152,12 +152,21 @@ export function TreeCanvas({
     setPersonPosition(personId, null).catch((err) => toastError(err))
   }, [])
 
-  /** A specific person's child-facing anchor edge (their card's top in 'rooted', bottom in 'classic'), override-aware. */
+  /**
+   * A specific person's anchor point for a child branch, override-aware.
+   * For a single parent this is their card's child-facing edge (top in
+   * 'rooted', bottom in 'classic'). For a couple, `useMidpoint` switches to
+   * each parent's vertical center instead -- the same point their partner
+   * line is drawn through -- so averaging the two always lands exactly on
+   * that visible connecting line, however far apart they've been dragged,
+   * instead of floating at some point in empty space between two cards.
+   */
   const parentAnchor = useCallback(
-    (personId: string) => {
+    (personId: string, useMidpoint: boolean) => {
       const raw = nodesById.get(personId)
       const top = effectiveXY(personId, raw?.x ?? 0, raw?.y ?? 0)
-      return { x: top.x, y: style === 'classic' ? top.y + NODE_HEIGHT : top.y }
+      const y = useMidpoint ? top.y + NODE_HEIGHT / 2 : style === 'classic' ? top.y + NODE_HEIGHT : top.y
+      return { x: top.x, y }
     },
     [nodesById, effectiveXY, style],
   )
@@ -231,7 +240,8 @@ export function TreeCanvas({
             // Average both parents' anchor points when the child has two
             // (a couple), so the branch leaves from the line between them
             // instead of fanning toward whichever one the layout favored.
-            const parentPoints = link.parentIds.map(parentAnchor)
+            const useMidpoint = link.parentIds.length > 1
+            const parentPoints = link.parentIds.map((pid) => parentAnchor(pid, useMidpoint))
             const parent = {
               x: parentPoints.reduce((sum, p) => sum + p.x, 0) / parentPoints.length,
               y: parentPoints.reduce((sum, p) => sum + p.y, 0) / parentPoints.length,

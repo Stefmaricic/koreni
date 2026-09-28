@@ -98,6 +98,8 @@ export function TreeNode({
       <div className="relative h-full w-full">
         <button
           type="button"
+          draggable={false}
+          onDragStart={(e) => e.preventDefault()}
           {...dragHandlers}
           className={`flex h-full w-full flex-col items-center gap-1.5 rounded-2xl border bg-surface px-2 py-3 text-center shadow-sm transition-transform ${
             arrangeMode ? 'cursor-grab active:cursor-grabbing' : 'hover:-translate-y-0.5 hover:shadow-md'
