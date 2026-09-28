@@ -9,6 +9,27 @@ export interface ChangelogEntry {
 // short bullet phrases, the way you'd casually tell someone what's new.
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: '2026-09-29',
+    cyrl: [
+      'Нове улоге на стаблу: Администратор, Уредник и Посматрач',
+      'Уредник бира коју особу на стаблу представља и може да уређује само своју ужу породицу (означену зеленим оквиром)',
+      'Сви чланови сада виде ко је на стаблу и коју улогу има',
+      'Администратор може да мења улогу постојећег члана',
+      'PDF извоз је сада оштар на било ком увећању и аутоматски дели велика стабла на више страна за штампу',
+      'Поправљена ћирилица у PDF извозу',
+      'Поправљено приказивање године смрти када недостаје година рођења',
+    ],
+    latn: [
+      'Nove uloge na stablu: Administrator, Urednik i Posmatrač',
+      'Urednik bira koju osobu na stablu predstavlja i može da uređuje samo svoju užu porodicu (označenu zelenim okvirom)',
+      'Svi članovi sada vide ko je na stablu i koju ulogu ima',
+      'Administrator može da menja ulogu postojećeg člana',
+      'PDF izvoz je sada oštar na bilo kom uvećanju i automatski deli velika stabla na više strana za štampu',
+      'Popravljena ćirilica u PDF izvozu',
+      'Popravljeno prikazivanje godine smrti kada nedostaje godina rođenja',
+    ],
+  },
+  {
     date: '2026-09-28',
     cyrl: [
       'Могућност уклањања чланова са породичног стабла',
