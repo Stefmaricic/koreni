@@ -17,6 +17,8 @@ export function makePerson(overrides: Partial<Person> = {}): Person {
     deathPlace: null,
     bio: null,
     photoUrl: null,
+    positionX: null,
+    positionY: null,
     createdAt: new Date(2020, 0, counter).toISOString(),
     updatedAt: new Date(2020, 0, counter).toISOString(),
     ...overrides,

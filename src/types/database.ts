@@ -51,6 +51,8 @@ export type FamilyMemberRow = {
   death_place: string | null
   bio: string | null
   photo_url: string | null
+  position_x: number | null
+  position_y: number | null
   created_by: string | null
   created_at: string
   updated_at: string

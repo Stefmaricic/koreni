@@ -1,6 +1,6 @@
 import type { FamilyGraph } from '@/utils/familyGraph'
 import { birthYear, personFullName } from '@/utils/mappers'
-import { NODE_HEIGHT, NODE_WIDTH, computeTreeLayout, type TreeStyle } from '@/utils/treeLayout'
+import { LAYOUT_PADDING, NODE_HEIGHT, NODE_WIDTH, computeTreeLayout, type TreeStyle } from '@/utils/treeLayout'
 import type { MemberGender, Person } from '@/types/models'
 
 // Exports always render in a fixed light palette, independent of the app's
@@ -55,6 +55,28 @@ function lerpColor(a: string, b: string, t: number) {
   return `#${mix.map((v) => v.toString(16).padStart(2, '0')).join('')}`
 }
 
+function jitter(id: string): number {
+  let h = 0
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) | 0
+  return ((h % 1000) / 1000) * 2 - 1
+}
+
+function branchPath(parentX: number, parentY: number, childX: number, childY: number, bend: number) {
+  const dx = childX - parentX
+  const midY = (parentY + childY) / 2
+  const c1x = parentX + dx * 0.15 + bend * 12
+  const c1y = parentY + (midY - parentY) * 0.6
+  const c2x = childX - dx * 0.15 - bend * 6
+  const c2y = childY - (childY - midY) * 0.6
+  return `M ${parentX} ${parentY} C ${c1x} ${c1y}, ${c2x} ${c2y}, ${childX} ${childY}`
+}
+
+function partnerPath(x1: number, y1: number, x2: number, y2: number, bend: number) {
+  const midX = (x1 + x2) / 2
+  const midY = (y1 + y2) / 2
+  return `M ${x1} ${y1} Q ${midX} ${midY + bend * 6}, ${x2} ${y2}`
+}
+
 function rootsGraphicSvg(x: number, topY: number, bottomY: number, opacity: number): string {
   const c = PALETTE.earthTrunk
   return `<g opacity="${opacity}" stroke="${c}" fill="none" stroke-linecap="round">
@@ -77,8 +99,24 @@ function rootsGraphicSvg(x: number, topY: number, bottomY: number, opacity: numb
  */
 export function buildExportSvg(graph: FamilyGraph, style: TreeStyle, treeName: string): { svg: string; width: number; height: number } {
   const layout = computeTreeLayout(graph, style)
-  const width = Math.max(layout.width, 1)
-  const height = Math.max(layout.height, 1)
+
+  const effectiveXY = (personId: string, fallbackX: number, fallbackY: number) => {
+    const person = graph.people.get(personId)
+    if (person?.positionX != null && person?.positionY != null) {
+      return { x: person.positionX, y: person.positionY }
+    }
+    return { x: fallbackX, y: fallbackY }
+  }
+
+  // A manually-arranged tree can extend past the automatic layout's bounds,
+  // so grow the canvas to fit every card rather than clipping dragged ones.
+  let width = Math.max(layout.width, 1)
+  let height = Math.max(layout.height, 1)
+  for (const node of layout.nodes) {
+    const pos = effectiveXY(node.personId, node.x, node.y)
+    width = Math.max(width, pos.x + NODE_WIDTH / 2 + LAYOUT_PADDING)
+    height = Math.max(height, pos.y + NODE_HEIGHT + LAYOUT_PADDING)
+  }
 
   const parts: string[] = []
   parts.push(`<rect x="0" y="0" width="${width}" height="${height}" fill="${PALETTE.pageBg}" />`)
@@ -89,52 +127,38 @@ export function buildExportSvg(graph: FamilyGraph, style: TreeStyle, treeName: s
   if (style === 'classic' && layout.nodes.length > 0) {
     parts.push(rootsGraphicSvg(width / 2, height - 150, height - 20, 0.14))
   }
-
-  const rootNodes = layout.nodes.filter((n) => n.generation === 0)
-  if (style === 'rooted' && rootNodes.length > 0) {
-    const x = rootNodes.reduce((sum, n) => sum + n.x, 0) / rootNodes.length
-    const edgeY = Math.min(...rootNodes.map((n) => n.y)) + NODE_HEIGHT
-    parts.push(rootsGraphicSvg(x, edgeY, height - 20, 1))
+  if (style === 'rooted') {
+    for (const anchor of layout.rootAnchors) {
+      parts.push(rootsGraphicSvg(anchor.x, anchor.edgeY, height - 20, 1))
+    }
   }
 
   for (const line of layout.partnerLines) {
-    parts.push(`<line x1="${line.x1}" x2="${line.x2}" y1="${line.y}" y2="${line.y}" stroke="${PALETTE.earthLine}" stroke-width="3" />`)
+    const a = effectiveXY(line.aId, line.aX, line.aY)
+    const b = effectiveXY(line.bId, line.bX, line.bY)
+    parts.push(
+      `<path d="${partnerPath(a.x, a.y, b.x, b.y, jitter(line.id))}" stroke="${PALETTE.earthLine}" stroke-width="2" stroke-linecap="round" fill="none" />`,
+    )
   }
 
   const maxGeneration = Math.max(0, ...layout.nodes.map((n) => n.generation))
-  const genByPerson = new Map(layout.nodes.map((n) => [n.personId, n.generation]))
 
-  if (style === 'classic') {
-    for (const edge of layout.childEdges) {
-      parts.push(`<g stroke="${PALETTE.rootLine}" stroke-width="2.5" fill="none">`)
-      parts.push(`<line x1="${edge.parentX}" y1="${edge.parentY}" x2="${edge.parentX}" y2="${edge.busY}" />`)
-      if (edge.children.length > 1) {
-        const minX = Math.min(edge.parentX, ...edge.children.map((c) => c.x))
-        const maxX = Math.max(edge.parentX, ...edge.children.map((c) => c.x))
-        parts.push(`<line x1="${minX}" y1="${edge.busY}" x2="${maxX}" y2="${edge.busY}" />`)
-      }
-      for (const c of edge.children) {
-        parts.push(`<line x1="${c.x}" y1="${edge.busY}" x2="${c.x}" y2="${c.topY}" />`)
-      }
-      parts.push('</g>')
-    }
-  } else {
-    for (const edge of layout.childEdges) {
-      for (const c of edge.children) {
-        const gen = genByPerson.get(c.personId) ?? 0
-        const color = lerpColor(PALETTE.earthTrunk, PALETTE.rootTrunk, maxGeneration ? gen / maxGeneration : 0)
-        const midY = (edge.parentY + c.topY) / 2
-        const strokeWidth = Math.max(2, 6 - gen * 0.7)
-        parts.push(
-          `<path d="M ${edge.parentX} ${edge.parentY} C ${edge.parentX} ${midY}, ${c.x} ${midY}, ${c.x} ${c.topY}" stroke="${color}" stroke-width="${strokeWidth}" stroke-linecap="round" fill="none" />`,
-        )
-      }
-    }
+  for (const link of layout.childLinks) {
+    const color = lerpColor(PALETTE.earthTrunk, PALETTE.rootTrunk, maxGeneration ? link.childGeneration / maxGeneration : 0)
+    const strokeWidth = link.primary ? Math.max(2, 6 - link.childGeneration * 0.7) : 1.5
+    const dash = link.primary ? '' : ' stroke-dasharray="2 5"'
+    const opacity = link.primary ? 1 : 0.6
+    const parent = effectiveXY(link.parentId, link.parentX, link.parentY - NODE_HEIGHT)
+    const child = effectiveXY(link.childId, link.childX, link.childY)
+    parts.push(
+      `<path d="${branchPath(parent.x, parent.y + NODE_HEIGHT, child.x, child.y, jitter(link.id))}" stroke="${link.primary ? color : PALETTE.earthLine}" stroke-width="${strokeWidth}" stroke-linecap="round" opacity="${opacity}"${dash} fill="none" />`,
+    )
   }
 
-  for (const node of layout.nodes) {
-    const person = graph.people.get(node.personId)
+  for (const rawNode of layout.nodes) {
+    const person = graph.people.get(rawNode.personId)
     if (!person) continue
+    const node = effectiveXY(rawNode.personId, rawNode.x, rawNode.y)
     const cardX = node.x - NODE_WIDTH / 2
     const cardY = node.y
     const avatarCx = node.x

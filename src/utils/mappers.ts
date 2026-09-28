@@ -15,6 +15,8 @@ export function toPerson(row: FamilyMemberRow): Person {
     deathPlace: row.death_place,
     bio: row.bio,
     photoUrl: row.photo_url,
+    positionX: row.position_x,
+    positionY: row.position_y,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }

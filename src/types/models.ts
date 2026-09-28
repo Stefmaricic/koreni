@@ -36,6 +36,8 @@ export interface Person {
   deathPlace: string | null
   bio: string | null
   photoUrl: string | null
+  positionX: number | null
+  positionY: number | null
   createdAt: string
   updatedAt: string
 }

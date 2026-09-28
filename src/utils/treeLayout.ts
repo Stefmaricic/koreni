@@ -4,6 +4,8 @@ export const NODE_WIDTH = 128
 export const NODE_HEIGHT = 172
 export const PARTNER_GAP = 20
 export const UNIT_GAP = 44
+/** Extra breathing room between two unrelated founding lineages (root units with no parent of their own). */
+export const TREE_GAP = 96
 export const GENERATION_GAP = 110
 export const LAYOUT_PADDING = 80
 
@@ -18,24 +20,42 @@ export interface PartnerLine {
   id: string
   aId: string
   bId: string
-  x1: number
-  x2: number
-  y: number
+  aX: number
+  aY: number
+  bX: number
+  bY: number
 }
 
-export interface ChildEdgeGroup {
+/**
+ * One parent -> child relationship, drawn as its own curve. `primary` marks
+ * whether this edge lies along the child's chosen bloodline (the one that
+ * determined their position in the tree) or is a secondary/reconvergent
+ * link (e.g. a second recorded parent-unit, or a cousin-marriage loop) that
+ * should render as a subtle, thinner, dashed connector instead of steering
+ * the layout.
+ */
+export interface ChildLink {
   id: string
-  /** x of the vertical drop from the parent unit (its horizontal midpoint) */
+  parentId: string
+  childId: string
   parentX: number
   parentY: number
-  busY: number
-  children: { personId: string; x: number; topY: number }[]
+  childX: number
+  childY: number
+  primary: boolean
+  childGeneration: number
+}
+
+export interface RootAnchor {
+  x: number
+  edgeY: number
 }
 
 export interface TreeLayoutResult {
   nodes: PositionedNode[]
   partnerLines: PartnerLine[]
-  childEdges: ChildEdgeGroup[]
+  childLinks: ChildLink[]
+  rootAnchors: RootAnchor[]
   width: number
   height: number
 }
@@ -70,18 +90,28 @@ interface Unit {
   memberIds: string[] // stable order (by createdAt)
   generation: number
   leftX: number
-  width: number
+  width: number // this unit's own card-row width (partners side by side)
+  subtreeWidth: number // width this unit + its primary descendants need to reserve
+  primaryParentUnitId: string | null
+  secondaryParentUnitIds: string[]
+  primaryChildUnitIds: string[]
 }
 
 /**
  * Turns a FamilyGraph into absolute pixel positions for every person plus the
- * connector lines between them. Pure & deterministic: same data in, same
+ * connector geometry between them. Pure & deterministic: same data in, same
  * layout out, so re-running it after an edit is cheap and predictable.
+ *
+ * Unlike a classic layered/org-chart algorithm (one shared horizontal row
+ * per generation), this recursively sizes each family's own descendant
+ * subtree and nests it under its actual parent unit, so unrelated branches
+ * never fight for space in a shared row and the tree naturally narrows at
+ * its root(s) and widens toward its most recent generations.
  */
 export function computeTreeLayout(graph: FamilyGraph, style: TreeStyle = 'classic'): TreeLayoutResult {
   const people = [...graph.people.values()]
   if (people.length === 0) {
-    return { nodes: [], partnerLines: [], childEdges: [], width: 0, height: 0 }
+    return { nodes: [], partnerLines: [], childLinks: [], rootAnchors: [], width: 0, height: 0 }
   }
 
   // ---- 1. Group partners into "units" that must stay adjacent -----------
@@ -104,8 +134,17 @@ export function computeTreeLayout(graph: FamilyGraph, style: TreeStyle = 'classi
   const units = new Map<string, Unit>()
   for (const [root, members] of unitMembers) {
     members.sort(byCreatedAt)
-    const unit: Unit = { id: root, memberIds: members, generation: 0, leftX: 0, width: 0 }
-    units.set(root, unit)
+    units.set(root, {
+      id: root,
+      memberIds: members,
+      generation: 0,
+      leftX: 0,
+      width: 0,
+      subtreeWidth: 0,
+      primaryParentUnitId: null,
+      secondaryParentUnitIds: [],
+      primaryChildUnitIds: [],
+    })
     for (const m of members) unitOfPerson.set(m, root)
   }
 
@@ -162,89 +201,104 @@ export function computeTreeLayout(graph: FamilyGraph, style: TreeStyle = 'classi
 
   for (const unit of units.values()) {
     unit.generation = Math.max(...unit.memberIds.map((m) => generation.get(m) ?? 0))
+    unit.width = unit.memberIds.length * NODE_WIDTH + (unit.memberIds.length - 1) * PARTNER_GAP
   }
 
-  // ---- 3. Order units within each generation (barycenter heuristic) -----
-  const maxGeneration = Math.max(...[...units.values()].map((u) => u.generation))
-  const generationRows: Unit[][] = Array.from({ length: maxGeneration + 1 }, () => [])
-  for (const unit of units.values()) generationRows[unit.generation].push(unit)
-
-  const unitParentUnits = (unit: Unit): string[] => {
-    const parentUnitIds = new Set<string>()
+  // ---- 3. Turn the parent/child DAG into a forest for layout purposes ---
+  // A unit can have more than one "parent unit" (e.g. a married-in spouse's
+  // own parents are also recorded). Exactly one becomes this unit's primary
+  // parent -- the one whose linking parent was added to the tree earliest,
+  // which in practice is almost always "whoever's bloodline was already in
+  // the tree before this marriage" -- and that primary link is what the
+  // recursive width/position pass below follows. Any other parent-unit
+  // becomes a secondary cross-link: still drawn, but rendered as a subtle
+  // dashed connector that doesn't affect anyone's position.
+  interface ParentCandidate {
+    parentUnitId: string
+    parentPersonId: string
+    parentCreatedAt: string
+  }
+  const parentCandidatesByUnit = new Map<string, ParentCandidate[]>()
+  for (const unit of units.values()) {
+    const seen = new Map<string, ParentCandidate>()
     for (const memberId of unit.memberIds) {
       for (const parentId of graph.parentIds(memberId)) {
-        parentUnitIds.add(unitOfPerson.get(parentId)!)
+        const parentUnitId = unitOfPerson.get(parentId)
+        if (!parentUnitId || parentUnitId === unit.id || seen.has(parentUnitId)) continue
+        seen.set(parentUnitId, {
+          parentUnitId,
+          parentPersonId: parentId,
+          parentCreatedAt: graph.people.get(parentId)?.createdAt ?? '',
+        })
       }
     }
-    return [...parentUnitIds]
+    parentCandidatesByUnit.set(unit.id, [...seen.values()])
   }
 
-  const orderIndex = new Map<string, number>() // unitId -> index within its generation row
-
-  generationRows[0].sort((a, b) => byCreatedAt(a.memberIds[0], b.memberIds[0]))
-  generationRows[0].forEach((u, i) => orderIndex.set(u.id, i))
-
-  for (let g = 1; g <= maxGeneration; g++) {
-    const row = generationRows[g]
-    row.sort((a, b) => {
-      const aParents = unitParentUnits(a)
-        .map((id) => orderIndex.get(id))
-        .filter((v): v is number => v !== undefined)
-      const bParents = unitParentUnits(b)
-        .map((id) => orderIndex.get(id))
-        .filter((v): v is number => v !== undefined)
-      const aKey = aParents.length ? aParents.reduce((s, v) => s + v, 0) / aParents.length : Infinity
-      const bKey = bParents.length ? bParents.reduce((s, v) => s + v, 0) / bParents.length : Infinity
-      if (aKey !== bKey) return aKey - bKey
-      return byCreatedAt(a.memberIds[0], b.memberIds[0])
-    })
-    row.forEach((u, i) => orderIndex.set(u.id, i))
+  for (const unit of units.values()) {
+    const candidates = parentCandidatesByUnit.get(unit.id) ?? []
+    if (candidates.length === 0) continue
+    candidates.sort((a, b) => a.parentCreatedAt.localeCompare(b.parentCreatedAt) || a.parentUnitId.localeCompare(b.parentUnitId))
+    unit.primaryParentUnitId = candidates[0].parentUnitId
+    unit.secondaryParentUnitIds = candidates.slice(1).map((c) => c.parentUnitId)
   }
 
-  // ---- 4. Initial left-to-right x placement per generation --------------
-  for (const row of generationRows) {
-    let cursor = 0
-    for (const unit of row) {
-      unit.width = unit.memberIds.length * NODE_WIDTH + (unit.memberIds.length - 1) * PARTNER_GAP
-      unit.leftX = cursor
-      cursor += unit.width + UNIT_GAP
+  for (const unit of units.values()) {
+    if (unit.primaryParentUnitId) {
+      units.get(unit.primaryParentUnitId)!.primaryChildUnitIds.push(unit.id)
     }
   }
 
-  // ---- 5. Bottom-up centering pass: pull parents toward their children --
-  const unitChildUnits = new Map<string, Set<string>>()
-  for (const unit of units.values()) unitChildUnits.set(unit.id, new Set())
-  for (const rel of graph.relationships) {
-    if (rel.type !== 'parent') continue
-    const parentUnit = unitOfPerson.get(rel.personAId)!
-    const childUnit = unitOfPerson.get(rel.personBId)!
-    if (parentUnit !== childUnit) unitChildUnits.get(parentUnit)!.add(childUnit)
+  const rootUnits = [...units.values()]
+    .filter((u) => !u.primaryParentUnitId)
+    .sort((a, b) => byCreatedAt(a.memberIds[0], b.memberIds[0]))
+
+  for (const unit of units.values()) {
+    unit.primaryChildUnitIds.sort((a, b) => byCreatedAt(units.get(a)!.memberIds[0], units.get(b)!.memberIds[0]))
   }
 
-  const centerOf = (unit: Unit) => unit.leftX + unit.width / 2
+  // ---- 4. Recursive subtree width, bottom-up ----------------------------
+  function computeSubtreeWidth(unit: Unit): number {
+    const kids = unit.primaryChildUnitIds.map((id) => units.get(id)!)
+    if (kids.length === 0) {
+      unit.subtreeWidth = unit.width
+      return unit.subtreeWidth
+    }
+    const kidsWidth = kids.reduce((sum, k) => sum + computeSubtreeWidth(k), 0) + (kids.length - 1) * UNIT_GAP
+    unit.subtreeWidth = Math.max(unit.width, kidsWidth)
+    return unit.subtreeWidth
+  }
+  for (const root of rootUnits) computeSubtreeWidth(root)
 
-  for (let g = maxGeneration - 1; g >= 0; g--) {
-    const row = generationRows[g]
-    for (const unit of row) {
-      const childUnits = [...(unitChildUnits.get(unit.id) ?? [])].map((id) => units.get(id)!)
-      if (childUnits.length === 0) continue
-      const avgChildCenter =
-        childUnits.reduce((sum, c) => sum + centerOf(c), 0) / childUnits.length
-      unit.leftX = avgChildCenter - unit.width / 2
+  // ---- 5. Recursive position, top-down ----------------------------------
+  function place(unit: Unit, bandLeft: number) {
+    const kids = unit.primaryChildUnitIds.map((id) => units.get(id)!)
+    if (kids.length === 0) {
+      unit.leftX = bandLeft + (unit.subtreeWidth - unit.width) / 2
+      return
     }
-    // resolve overlaps left-to-right, preserving the crossing-minimized order
-    let minLeft = -Infinity
-    for (const unit of row) {
-      if (unit.leftX < minLeft) unit.leftX = minLeft
-      minLeft = unit.leftX + unit.width + UNIT_GAP
+    const kidsWidth = kids.reduce((sum, k) => sum + k.subtreeWidth, 0) + (kids.length - 1) * UNIT_GAP
+    let cursor = bandLeft + (unit.subtreeWidth - kidsWidth) / 2
+    for (const kid of kids) {
+      place(kid, cursor)
+      cursor += kid.subtreeWidth + UNIT_GAP
     }
+    const firstCenter = kids[0].leftX + kids[0].width / 2
+    const lastCenter = kids[kids.length - 1].leftX + kids[kids.length - 1].width / 2
+    unit.leftX = (firstCenter + lastCenter) / 2 - unit.width / 2
+  }
+
+  let rootCursor = 0
+  for (const root of rootUnits) {
+    place(root, rootCursor)
+    rootCursor += root.subtreeWidth + TREE_GAP
   }
 
   // shift everything so the leftmost node starts at x = 0
   const globalMinX = Math.min(...[...units.values()].map((u) => u.leftX))
   for (const unit of units.values()) unit.leftX -= globalMinX
 
-  // ---- 6. Emit nodes + connector geometry --------------------------------
+  // ---- 6. Emit nodes ------------------------------------------------------
   const nodes: PositionedNode[] = []
   for (const unit of units.values()) {
     unit.memberIds.forEach((personId, i) => {
@@ -257,6 +311,7 @@ export function computeTreeLayout(graph: FamilyGraph, style: TreeStyle = 'classi
   const nodeX = new Map(nodes.map((n) => [n.personId, n.x]))
   const nodeY = new Map(nodes.map((n) => [n.personId, n.y]))
 
+  // ---- 7. Partner lines ---------------------------------------------------
   const partnerLines: PartnerLine[] = []
   const seenPartnerPairs = new Set<string>()
   for (const rel of graph.relationships) {
@@ -267,45 +322,64 @@ export function computeTreeLayout(graph: FamilyGraph, style: TreeStyle = 'classi
     const ax = nodeX.get(rel.personAId)
     const bx = nodeX.get(rel.personBId)
     const ay = nodeY.get(rel.personAId)
-    if (ax === undefined || bx === undefined || ay === undefined) continue
+    const by = nodeY.get(rel.personBId)
+    if (ax === undefined || bx === undefined || ay === undefined || by === undefined) continue
     partnerLines.push({
       id: rel.id,
       aId: rel.personAId,
       bId: rel.personBId,
-      x1: Math.min(ax, bx),
-      x2: Math.max(ax, bx),
-      y: ay + NODE_HEIGHT / 2,
+      aX: ax,
+      aY: ay + NODE_HEIGHT / 2,
+      bX: bx,
+      bY: by + NODE_HEIGHT / 2,
     })
   }
 
-  const childEdges: ChildEdgeGroup[] = []
-  for (const unit of units.values()) {
-    const childUnitIds = [...(unitChildUnits.get(unit.id) ?? [])]
-    if (childUnitIds.length === 0) continue
+  // ---- 8. Child links: one curve per parent -> child relationship --------
+  // Distribute a unit's outgoing links across the unit's own width (instead
+  // of always leaving from dead-center) so several children fan out from
+  // slightly different points, the way real branches leave a trunk.
+  const childLinks: ChildLink[] = []
+  for (const rel of graph.relationships) {
+    if (rel.type !== 'parent') continue
+    const parentId = rel.personAId
+    const childId = rel.personBId
+    const parentUnitId = unitOfPerson.get(parentId)
+    const childUnitId = unitOfPerson.get(childId)
+    if (!parentUnitId || !childUnitId) continue
+    const parentUnit = units.get(parentUnitId)!
+    const childUnit = units.get(childUnitId)!
+    const childX = nodeX.get(childId)
+    const childY = nodeY.get(childId)
+    if (childX === undefined || childY === undefined) continue
 
-    const childIds = childUnitIds
-      .flatMap((id) => units.get(id)!.memberIds)
-      .filter((personId) => graph.parentIds(personId).some((pid) => unit.memberIds.includes(pid)))
+    const siblingSlots = parentUnit.primaryChildUnitIds.length || 1
+    const slotIndex = Math.max(0, parentUnit.primaryChildUnitIds.indexOf(childUnitId))
+    const spread = Math.min(parentUnit.width * 0.7, siblingSlots > 1 ? parentUnit.width * 0.7 : 0)
+    const parentX =
+      parentUnit.leftX +
+      parentUnit.width / 2 +
+      (siblingSlots > 1 ? (slotIndex / (siblingSlots - 1) - 0.5) * spread : 0)
+    const parentY = parentUnit.generation * (NODE_HEIGHT + GENERATION_GAP) + NODE_HEIGHT
 
-    if (childIds.length === 0) continue
-
-    const parentX = centerOf(unit)
-    const parentY = unit.generation * (NODE_HEIGHT + GENERATION_GAP) + NODE_HEIGHT
-    const childTopY = (unit.generation + 1) * (NODE_HEIGHT + GENERATION_GAP)
-    const busY = parentY + (childTopY - parentY) / 2
-
-    childEdges.push({
-      id: `children-${unit.id}`,
+    childLinks.push({
+      id: rel.id,
+      parentId,
+      childId,
       parentX,
       parentY,
-      busY,
-      children: childIds.map((personId) => ({
-        personId,
-        x: nodeX.get(personId) ?? parentX,
-        topY: childTopY,
-      })),
+      childX,
+      childY,
+      primary: childUnit.primaryParentUnitId === parentUnitId,
+      childGeneration: childUnit.generation,
     })
   }
+
+  // ---- 9. Root anchors (one small trunk graphic per founding lineage) ---
+  const rootAnchors: RootAnchor[] = rootUnits.map((unit) => ({
+    x: unit.leftX + unit.width / 2,
+    edgeY: unit.generation * (NODE_HEIGHT + GENERATION_GAP) + NODE_HEIGHT,
+  }))
 
   // shift everything by the padding so nodes never touch the SVG edge
   for (const n of nodes) {
@@ -313,22 +387,24 @@ export function computeTreeLayout(graph: FamilyGraph, style: TreeStyle = 'classi
     n.y += LAYOUT_PADDING
   }
   for (const line of partnerLines) {
-    line.x1 += LAYOUT_PADDING
-    line.x2 += LAYOUT_PADDING
-    line.y += LAYOUT_PADDING
+    line.aX += LAYOUT_PADDING
+    line.aY += LAYOUT_PADDING
+    line.bX += LAYOUT_PADDING
+    line.bY += LAYOUT_PADDING
   }
-  for (const edge of childEdges) {
-    edge.parentX += LAYOUT_PADDING
-    edge.parentY += LAYOUT_PADDING
-    edge.busY += LAYOUT_PADDING
-    for (const c of edge.children) {
-      c.x += LAYOUT_PADDING
-      c.topY += LAYOUT_PADDING
-    }
+  for (const link of childLinks) {
+    link.parentX += LAYOUT_PADDING
+    link.parentY += LAYOUT_PADDING
+    link.childX += LAYOUT_PADDING
+    link.childY += LAYOUT_PADDING
+  }
+  for (const anchor of rootAnchors) {
+    anchor.x += LAYOUT_PADDING
+    anchor.edgeY += LAYOUT_PADDING
   }
 
   const maxX = Math.max(...nodes.map((n) => n.x)) + NODE_WIDTH / 2
-  const maxY = Math.max(...nodes.map((n) => n.y)) + NODE_HEIGHT / 2
+  const maxY = Math.max(...nodes.map((n) => n.y)) + NODE_HEIGHT
   const width = maxX + LAYOUT_PADDING
   const height = maxY + LAYOUT_PADDING
 
@@ -339,13 +415,16 @@ export function computeTreeLayout(graph: FamilyGraph, style: TreeStyle = 'classi
     // coordinate identical, so the same connector-drawing code downstream
     // still produces a valid line between each mirrored pair of points.
     for (const n of nodes) n.y = height - n.y - NODE_HEIGHT
-    for (const line of partnerLines) line.y = height - line.y
-    for (const edge of childEdges) {
-      edge.parentY = height - edge.parentY
-      edge.busY = height - edge.busY
-      for (const c of edge.children) c.topY = height - c.topY
+    for (const line of partnerLines) {
+      line.aY = height - line.aY
+      line.bY = height - line.bY
     }
+    for (const link of childLinks) {
+      link.parentY = height - link.parentY
+      link.childY = height - link.childY
+    }
+    for (const anchor of rootAnchors) anchor.edgeY = height - anchor.edgeY
   }
 
-  return { nodes, partnerLines, childEdges, width, height }
+  return { nodes, partnerLines, childLinks, rootAnchors, width, height }
 }

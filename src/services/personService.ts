@@ -46,6 +46,15 @@ export async function updatePersonPhoto(personId: string, photoUrl: string | nul
   if (error) throw error
 }
 
+/** Sets or clears (pass null) a person's manual override position on the tree canvas. */
+export async function setPersonPosition(personId: string, position: { x: number; y: number } | null): Promise<void> {
+  const { error } = await supabase
+    .from('family_members')
+    .update({ position_x: position?.x ?? null, position_y: position?.y ?? null })
+    .eq('id', personId)
+  if (error) throw error
+}
+
 export async function deletePerson(personId: string): Promise<void> {
   const { error } = await supabase.from('family_members').delete().eq('id', personId)
   if (error) throw error

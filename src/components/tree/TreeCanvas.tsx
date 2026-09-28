@@ -1,11 +1,13 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ThemeIcon } from '@/components/layout/ThemeToggle'
 import { FeedbackIcon } from '@/components/feedback/FeedbackWidget'
 import { TreeNode } from '@/components/tree/TreeNode'
 import { Button } from '@/components/ui/Button'
 import { usePanZoom } from '@/hooks/usePanZoom'
+import { setPersonPosition } from '@/services/personService'
 import { useThemeStore } from '@/stores/themeStore'
+import { toastError } from '@/stores/toastStore'
 import type { FamilyGraph } from '@/utils/familyGraph'
 import { computeTreeLayout, NODE_HEIGHT, type TreeStyle } from '@/utils/treeLayout'
 
@@ -17,6 +19,7 @@ interface TreeCanvasProps {
   onSelectPerson: (personId: string) => void
   onAddFirstPerson: () => void
   onOpenFeedback: () => void
+  canEdit: boolean
 }
 
 function IconButton({ label, active, onClick, children }: { label: string; active?: boolean; onClick: () => void; children: React.ReactNode }) {
@@ -46,6 +49,31 @@ function lerpColor(a: string, b: string, t: number) {
 const ROOT_COLOR = '#8f4f30' // earth-600
 const CANOPY_COLOR = '#3f7548' // root-500
 
+/** Deterministic -1..1 "personality" for a given id, used to bend each branch a little differently so the tree doesn't look mechanically uniform. */
+function jitter(id: string): number {
+  let h = 0
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) | 0
+  return ((h % 1000) / 1000) * 2 - 1
+}
+
+/** A smooth branch from a parent card's bottom edge to a child card's top edge, leaving at a natural angle rather than a dead-straight vertical. */
+function branchPath(parentX: number, parentY: number, childX: number, childY: number, bend: number) {
+  const dx = childX - parentX
+  const midY = (parentY + childY) / 2
+  const c1x = parentX + dx * 0.15 + bend * 12
+  const c1y = parentY + (midY - parentY) * 0.6
+  const c2x = childX - dx * 0.15 - bend * 6
+  const c2y = childY - (childY - midY) * 0.6
+  return `M ${parentX} ${parentY} C ${c1x} ${c1y}, ${c2x} ${c2y}, ${childX} ${childY}`
+}
+
+/** A short, gently bowed connector between two partners, thinner and lighter than a bloodline branch. */
+function partnerPath(x1: number, y1: number, x2: number, y2: number, bend: number) {
+  const midX = (x1 + x2) / 2
+  const midY = (y1 + y2) / 2
+  return `M ${x1} ${y1} Q ${midX} ${midY + bend * 6}, ${x2} ${y2}`
+}
+
 /** A small illustrated trunk + spreading roots, anchored at (x, bottomY) and reaching up to topY. */
 function RootsGraphic({ x, topY, bottomY, opacity = 1 }: { x: number; topY: number; bottomY: number; opacity?: number }) {
   return (
@@ -67,6 +95,7 @@ export function TreeCanvas({
   onSelectPerson,
   onAddFirstPerson,
   onOpenFeedback,
+  canEdit,
 }: TreeCanvasProps) {
   const { t } = useTranslation()
   const containerRef = useRef<HTMLDivElement>(null)
@@ -74,25 +103,58 @@ export function TreeCanvas({
   const theme = useThemeStore((s) => s.theme)
   const toggleTheme = useThemeStore((s) => s.toggle)
 
+  const [arrangeMode, setArrangeMode] = useState(false)
+  // null means "explicitly reset to the automatic position" (overrides a
+  // still-stale, non-null position_x/position_y on the fetched person until
+  // the next full refresh catches up); absent means "defer to the person's
+  // saved position, if any."
+  const [liveOverrides, setLiveOverrides] = useState<Map<string, { x: number; y: number } | null>>(new Map())
+
   const layout = useMemo(() => computeTreeLayout(graph, style), [graph, style])
   const peopleById = graph.people
+
+  const effectiveXY = useCallback(
+    (personId: string, fallbackX: number, fallbackY: number) => {
+      if (liveOverrides.has(personId)) {
+        const v = liveOverrides.get(personId)
+        return v ?? { x: fallbackX, y: fallbackY }
+      }
+      const person = peopleById.get(personId)
+      if (person?.positionX != null && person?.positionY != null) {
+        return { x: person.positionX, y: person.positionY }
+      }
+      return { x: fallbackX, y: fallbackY }
+    },
+    [liveOverrides, peopleById],
+  )
+
+  const hasOverride = useCallback(
+    (personId: string) => {
+      if (liveOverrides.has(personId)) return liveOverrides.get(personId) !== null
+      const person = peopleById.get(personId)
+      return person?.positionX != null && person?.positionY != null
+    },
+    [liveOverrides, peopleById],
+  )
+
+  const handleDragMove = useCallback((personId: string, x: number, y: number) => {
+    setLiveOverrides((prev) => new Map(prev).set(personId, { x, y }))
+  }, [])
+
+  const handleDragEnd = useCallback((personId: string, x: number, y: number) => {
+    setLiveOverrides((prev) => new Map(prev).set(personId, { x, y }))
+    setPersonPosition(personId, { x, y }).catch((err) => toastError(err))
+  }, [])
+
+  const handleResetPosition = useCallback((personId: string) => {
+    setLiveOverrides((prev) => new Map(prev).set(personId, null))
+    setPersonPosition(personId, null).catch((err) => toastError(err))
+  }, [])
 
   const maxGeneration = useMemo(
     () => Math.max(0, ...layout.nodes.map((n) => n.generation)),
     [layout.nodes],
   )
-  const genByPerson = useMemo(() => new Map(layout.nodes.map((n) => [n.personId, n.generation])), [layout.nodes])
-
-  // In 'rooted' mode generation 0 (the oldest people) sits at the bottom of
-  // the mirrored layout, so the trunk anchors under their average x position.
-  const rootAnchor = useMemo(() => {
-    if (style !== 'rooted') return null
-    const rootNodes = layout.nodes.filter((n) => n.generation === 0)
-    if (rootNodes.length === 0) return null
-    const x = rootNodes.reduce((sum, n) => sum + n.x, 0) / rootNodes.length
-    const edgeY = Math.min(...rootNodes.map((n) => n.y)) + NODE_HEIGHT
-    return { x, edgeY }
-  }, [layout.nodes, style])
 
   const fitted = useRef<string | null>(null)
   useEffect(() => {
@@ -119,73 +181,71 @@ export function TreeCanvas({
     >
       <svg width="100%" height="100%" className="cursor-grab active:cursor-grabbing">
         <g transform={`translate(${transform.x}, ${transform.y}) scale(${transform.scale})`}>
-          {/* decorative trunk/roots: faint behind the classic chart, solid anchor under the rooted chart */}
+          {/* decorative trunk/roots graphic under each founding lineage */}
           {style === 'classic' && layout.nodes.length > 0 && (
             <RootsGraphic x={layout.width / 2} topY={layout.height - 150} bottomY={layout.height - 20} opacity={0.14} />
           )}
-          {rootAnchor && (
-            <RootsGraphic x={rootAnchor.x} topY={rootAnchor.edgeY} bottomY={layout.height - 20} />
-          )}
+          {style === 'rooted' &&
+            layout.rootAnchors.map((anchor, i) => (
+              <RootsGraphic key={i} x={anchor.x} topY={anchor.edgeY} bottomY={layout.height - 20} />
+            ))}
 
-          {layout.partnerLines.map((line) => (
-            <line
-              key={line.id}
-              x1={line.x1}
-              x2={line.x2}
-              y1={line.y}
-              y2={line.y}
-              stroke="var(--color-earth-300)"
-              strokeWidth={3}
-            />
-          ))}
+          {layout.partnerLines.map((line) => {
+            const a = effectiveXY(line.aId, line.aX, line.aY)
+            const b = effectiveXY(line.bId, line.bX, line.bY)
+            return (
+              <path
+                key={line.id}
+                d={partnerPath(a.x, a.y, b.x, b.y, jitter(line.id))}
+                stroke="var(--color-earth-300)"
+                strokeWidth={2}
+                fill="none"
+                strokeLinecap="round"
+              />
+            )
+          })}
 
-          {style === 'classic'
-            ? layout.childEdges.map((edge) => (
-                <g key={edge.id} stroke="var(--color-root-300)" strokeWidth={2.5} fill="none">
-                  <line x1={edge.parentX} y1={edge.parentY} x2={edge.parentX} y2={edge.busY} />
-                  {edge.children.length > 1 && (
-                    <line
-                      x1={Math.min(edge.parentX, ...edge.children.map((c) => c.x))}
-                      x2={Math.max(edge.parentX, ...edge.children.map((c) => c.x))}
-                      y1={edge.busY}
-                      y2={edge.busY}
-                    />
-                  )}
-                  {edge.children.map((c) => (
-                    <line key={c.personId} x1={c.x} y1={edge.busY} x2={c.x} y2={c.topY} />
-                  ))}
-                </g>
-              ))
-            : layout.childEdges.map((edge) =>
-                edge.children.map((c) => {
-                  const gen = genByPerson.get(c.personId) ?? 0
-                  const color = lerpColor(ROOT_COLOR, CANOPY_COLOR, maxGeneration ? gen / maxGeneration : 0)
-                  const midY = (edge.parentY + c.topY) / 2
-                  const strokeWidth = Math.max(2, 6 - gen * 0.7)
-                  return (
-                    <path
-                      key={c.personId}
-                      d={`M ${edge.parentX} ${edge.parentY} C ${edge.parentX} ${midY}, ${c.x} ${midY}, ${c.x} ${c.topY}`}
-                      stroke={color}
-                      strokeWidth={strokeWidth}
-                      strokeLinecap="round"
-                      fill="none"
-                    />
-                  )
-                }),
-              )}
+          {layout.childLinks.map((link) => {
+            const color = lerpColor(
+              ROOT_COLOR,
+              CANOPY_COLOR,
+              maxGeneration ? link.childGeneration / maxGeneration : 0,
+            )
+            const strokeWidth = link.primary ? Math.max(2, 6 - link.childGeneration * 0.7) : 1.5
+            const parent = effectiveXY(link.parentId, link.parentX, link.parentY - NODE_HEIGHT)
+            const child = effectiveXY(link.childId, link.childX, link.childY)
+            return (
+              <path
+                key={link.id}
+                d={branchPath(parent.x, parent.y + NODE_HEIGHT, child.x, child.y, jitter(link.id))}
+                stroke={link.primary ? color : 'var(--color-earth-300)'}
+                strokeWidth={strokeWidth}
+                strokeLinecap="round"
+                strokeDasharray={link.primary ? undefined : '2 5'}
+                opacity={link.primary ? 1 : 0.6}
+                fill="none"
+              />
+            )
+          })}
 
           {layout.nodes.map((node) => {
             const person = peopleById.get(node.personId)
             if (!person) return null
+            const pos = effectiveXY(node.personId, node.x, node.y)
             return (
               <TreeNode
                 key={node.personId}
                 person={person}
-                x={node.x}
-                y={node.y}
+                x={pos.x}
+                y={pos.y}
                 selected={node.personId === selectedId}
                 onSelect={onSelectPerson}
+                arrangeMode={arrangeMode}
+                scale={transform.scale}
+                hasOverride={hasOverride(node.personId)}
+                onDragMove={handleDragMove}
+                onDragEnd={handleDragEnd}
+                onResetPosition={handleResetPosition}
               />
             )
           })}
@@ -212,6 +272,21 @@ export function TreeCanvas({
             />
           </svg>
         </IconButton>
+        {canEdit && (
+          <IconButton
+            label={arrangeMode ? t('tree.arrangeDone') : t('tree.arrange')}
+            active={arrangeMode}
+            onClick={() => setArrangeMode((v) => !v)}
+          >
+            <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={2}>
+              <path
+                d="M10 2.5v15M2.5 10h15M10 2.5l-2.5 2.5M10 2.5l2.5 2.5M10 17.5l-2.5-2.5M10 17.5l2.5-2.5M2.5 10l2.5-2.5M2.5 10l2.5 2.5M17.5 10l-2.5-2.5M17.5 10l-2.5 2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </IconButton>
+        )}
         <div className="my-0.5 h-px bg-cream-300" />
         <IconButton
           label={style === 'classic' ? t('tree.switchToRooted') : t('tree.switchToClassic')}

@@ -256,6 +256,7 @@ export function TreePage() {
           onSelectPerson={openActions}
           onAddFirstPerson={() => setSheet({ mode: 'create' })}
           onOpenFeedback={() => setFeedbackOpen(true)}
+          canEdit={canEdit}
         />
       </div>
 
