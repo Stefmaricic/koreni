@@ -289,6 +289,50 @@ function parseSvgElement(svg: string): Element {
 
 const tileLabel = (row: number, col: number) => `${row + 1}${String.fromCharCode(65 + col)}`
 
+// jsPDF's built-in fonts are the 14 standard PDF fonts, which only cover
+// Latin glyphs -- any Cyrillic (or other non-Latin) text renders as garbage
+// through them. svg2pdf.js needs a font that actually has those glyphs
+// registered with jsPDF *before* it renders, so PDF export embeds DejaVu
+// Sans (broad Unicode coverage, permissively licensed, single file per
+// weight -- unlike most icon/webfont-style deliveries that split scripts
+// across separate subset files) and the SVG's font-family/weight are
+// swapped to match it. The SVG/PNG exports don't need this: the browser
+// renders their text itself, with normal font-fallback for any script.
+const PDF_FONT_FAMILY = 'DejaVuSans'
+const PDF_FONT_FILES: { file: string; style: 'normal' | 'bold' }[] = [
+  { file: '/fonts/DejaVuSans.ttf', style: 'normal' },
+  { file: '/fonts/DejaVuSans-Bold.ttf', style: 'bold' },
+]
+
+async function arrayBufferToBase64(buf: ArrayBuffer): Promise<string> {
+  const bytes = new Uint8Array(buf)
+  let binary = ''
+  const chunkSize = 0x8000
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize))
+  }
+  return btoa(binary)
+}
+
+async function embedPdfFonts(pdf: import('jspdf').jsPDF) {
+  await Promise.all(
+    PDF_FONT_FILES.map(async ({ file, style }) => {
+      const buf = await fetch(file).then((r) => r.arrayBuffer())
+      const vfsName = file.split('/').pop()!
+      pdf.addFileToVFS(vfsName, await arrayBufferToBase64(buf))
+      pdf.addFont(vfsName, PDF_FONT_FAMILY, style)
+    }),
+  )
+}
+
+/** Swaps the export SVG's display fonts for the one embedded in the PDF, and normalizes its one semibold weight down to the embedded font's plain "bold" style (jsPDF only has normal/bold/italic/bolditalic to match against, not arbitrary numeric weights). */
+function toPdfSafeSvg(svg: string): string {
+  return svg
+    .replace(/font-family="Georgia, serif"/g, `font-family="${PDF_FONT_FAMILY}"`)
+    .replace(/font-family="Inter, sans-serif"/g, `font-family="${PDF_FONT_FAMILY}"`)
+    .replace(/font-weight="600"/g, 'font-weight="bold"')
+}
+
 /**
  * 1 layout px = 1 pt, so the tree is laid out at its true physical print
  * size. A small tree gets a single page sized to fit it exactly, like a
@@ -299,6 +343,7 @@ const tileLabel = (row: number, col: number) => `${row + 1}${String.fromCharCode
  */
 export async function exportTreeAsPdf(graph: FamilyGraph, style: TreeStyle, treeName: string) {
   const { svg, width, height } = buildExportSvg(graph, style, treeName)
+  const pdfSvg = toPdfSafeSvg(svg)
   const [{ jsPDF }] = await Promise.all([import('jspdf'), import('svg2pdf.js')])
 
   const landscape = width >= height
@@ -313,7 +358,8 @@ export async function exportTreeAsPdf(graph: FamilyGraph, style: TreeStyle, tree
       unit: 'pt',
       format: [width + TILE_MARGIN * 2, height + TILE_MARGIN * 2],
     })
-    await pdf.svg(parseSvgElement(svg), { x: TILE_MARGIN, y: TILE_MARGIN, width, height })
+    await embedPdfFonts(pdf)
+    await pdf.svg(parseSvgElement(pdfSvg), { x: TILE_MARGIN, y: TILE_MARGIN, width, height })
     pdf.save(`${slugify(treeName)}.pdf`)
     return
   }
@@ -323,6 +369,8 @@ export async function exportTreeAsPdf(graph: FamilyGraph, style: TreeStyle, tree
   const pageCount = colStarts.length * rowStarts.length
 
   const pdf = new jsPDF({ orientation: landscape ? 'landscape' : 'portrait', unit: 'pt', format: [pageWidth, pageHeight] })
+  await embedPdfFonts(pdf)
+  pdf.setFont(PDF_FONT_FAMILY, 'normal')
 
   // Lead page: a shrunk-to-fit overview with the tile grid overlaid.
   const overviewScale = Math.min(tileContentWidth / width, tileContentHeight / height)
@@ -330,7 +378,7 @@ export async function exportTreeAsPdf(graph: FamilyGraph, style: TreeStyle, tree
   const overviewHeight = height * overviewScale
   const overviewX = TILE_MARGIN + (tileContentWidth - overviewWidth) / 2
   const overviewY = TILE_MARGIN + (tileContentHeight - overviewHeight) / 2
-  await pdf.svg(parseSvgElement(svg), { x: overviewX, y: overviewY, width: overviewWidth, height: overviewHeight })
+  await pdf.svg(parseSvgElement(pdfSvg), { x: overviewX, y: overviewY, width: overviewWidth, height: overviewHeight })
   pdf.setDrawColor(200, 80, 40)
   pdf.setLineWidth(0.75)
   for (const c of colStarts) {
@@ -343,6 +391,7 @@ export async function exportTreeAsPdf(graph: FamilyGraph, style: TreeStyle, tree
     const y = overviewY + r * overviewScale
     pdf.line(overviewX, y, overviewX + overviewWidth, y)
   }
+  pdf.setFont(PDF_FONT_FAMILY, 'normal')
   pdf.setFontSize(8)
   pdf.setTextColor(120, 60, 30)
   rowStarts.forEach((r, ri) => {
@@ -350,6 +399,7 @@ export async function exportTreeAsPdf(graph: FamilyGraph, style: TreeStyle, tree
       pdf.text(tileLabel(ri, ci), overviewX + c * overviewScale + 3, overviewY + r * overviewScale + 10)
     })
   })
+  pdf.setFont(PDF_FONT_FAMILY, 'normal')
   pdf.setFontSize(10)
   pdf.setTextColor(30, 25, 18)
   pdf.text(
@@ -362,7 +412,8 @@ export async function exportTreeAsPdf(graph: FamilyGraph, style: TreeStyle, tree
   for (let ri = 0; ri < rowStarts.length; ri++) {
     for (let ci = 0; ci < colStarts.length; ci++) {
       pdf.addPage([pageWidth, pageHeight], landscape ? 'landscape' : 'portrait')
-      await pdf.svg(parseSvgElement(svg), { x: TILE_MARGIN - colStarts[ci], y: TILE_MARGIN - rowStarts[ri], width, height })
+      await pdf.svg(parseSvgElement(pdfSvg), { x: TILE_MARGIN - colStarts[ci], y: TILE_MARGIN - rowStarts[ri], width, height })
+      pdf.setFont(PDF_FONT_FAMILY, 'normal')
       pdf.setFontSize(8)
       pdf.setTextColor(120, 60, 30)
       pdf.text(`${treeName} — ${tileLabel(ri, ci)} (page ${ri * colStarts.length + ci + 2} of ${pageCount + 1})`, TILE_MARGIN, 16)
