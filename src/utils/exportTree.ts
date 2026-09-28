@@ -133,32 +133,30 @@ export function buildExportSvg(graph: FamilyGraph, style: TreeStyle, treeName: s
     }
   }
 
+  const nodesById = new Map(layout.nodes.map((n) => [n.personId, n]))
+  /** A specific person's card-edge anchor (top in 'rooted', bottom in 'classic'), override-aware -- used for both the partner line and child branches so they always meet at the same point. */
+  const parentAnchor = (personId: string) => {
+    const raw = nodesById.get(personId)
+    const top = effectiveXY(personId, raw?.x ?? 0, raw?.y ?? 0)
+    return { x: top.x, y: style === 'classic' ? top.y + NODE_HEIGHT : top.y }
+  }
+
   for (const line of layout.partnerLines) {
-    const aTop = effectiveXY(line.aId, line.aX, line.aY - NODE_HEIGHT / 2)
-    const bTop = effectiveXY(line.bId, line.bX, line.bY - NODE_HEIGHT / 2)
-    const a = { x: aTop.x, y: aTop.y + NODE_HEIGHT / 2 }
-    const b = { x: bTop.x, y: bTop.y + NODE_HEIGHT / 2 }
+    const a = parentAnchor(line.aId)
+    const b = parentAnchor(line.bId)
     parts.push(
       `<path d="${partnerPath(a.x, a.y, b.x, b.y, jitter(line.id))}" stroke="${PALETTE.earthLine}" stroke-width="2" stroke-linecap="round" fill="none" />`,
     )
   }
 
   const maxGeneration = Math.max(0, ...layout.nodes.map((n) => n.generation))
-  const nodesById = new Map(layout.nodes.map((n) => [n.personId, n]))
-  const parentAnchor = (personId: string, useMidpoint: boolean) => {
-    const raw = nodesById.get(personId)
-    const top = effectiveXY(personId, raw?.x ?? 0, raw?.y ?? 0)
-    const y = useMidpoint ? top.y + NODE_HEIGHT / 2 : style === 'classic' ? top.y + NODE_HEIGHT : top.y
-    return { x: top.x, y }
-  }
 
   for (const link of layout.childLinks) {
     const color = lerpColor(PALETTE.earthTrunk, PALETTE.rootTrunk, maxGeneration ? link.childGeneration / maxGeneration : 0)
     const strokeWidth = link.primary ? Math.max(2, 6 - link.childGeneration * 0.7) : 1.5
     const dash = link.primary ? '' : ' stroke-dasharray="2 5"'
     const opacity = link.primary ? 1 : 0.6
-    const useMidpoint = link.parentIds.length > 1
-    const parentPoints = link.parentIds.map((pid) => parentAnchor(pid, useMidpoint))
+    const parentPoints = link.parentIds.map(parentAnchor)
     const parent = {
       x: parentPoints.reduce((sum, p) => sum + p.x, 0) / parentPoints.length,
       y: parentPoints.reduce((sum, p) => sum + p.y, 0) / parentPoints.length,

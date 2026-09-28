@@ -153,20 +153,17 @@ export function TreeCanvas({
   }, [])
 
   /**
-   * A specific person's anchor point for a child branch, override-aware.
-   * For a single parent this is their card's child-facing edge (top in
-   * 'rooted', bottom in 'classic'). For a couple, `useMidpoint` switches to
-   * each parent's vertical center instead -- the same point their partner
-   * line is drawn through -- so averaging the two always lands exactly on
-   * that visible connecting line, however far apart they've been dragged,
-   * instead of floating at some point in empty space between two cards.
+   * A specific person's card-edge anchor point -- the side facing whoever
+   * they're connected to below/above (top in 'rooted', bottom in 'classic'),
+   * override-aware. Used for both the partner line and child branches, so a
+   * couple's connecting line and the branch(es) leaving from them always
+   * land on the exact same point, however far apart they've been dragged.
    */
   const parentAnchor = useCallback(
-    (personId: string, useMidpoint: boolean) => {
+    (personId: string) => {
       const raw = nodesById.get(personId)
       const top = effectiveXY(personId, raw?.x ?? 0, raw?.y ?? 0)
-      const y = useMidpoint ? top.y + NODE_HEIGHT / 2 : style === 'classic' ? top.y + NODE_HEIGHT : top.y
-      return { x: top.x, y }
+      return { x: top.x, y: style === 'classic' ? top.y + NODE_HEIGHT : top.y }
     },
     [nodesById, effectiveXY, style],
   )
@@ -211,13 +208,8 @@ export function TreeCanvas({
             ))}
 
           {layout.partnerLines.map((line) => {
-            // line.aY/bY are each person's vertical midpoint, but a manual
-            // override is stored as the card's top-left -- convert through
-            // top-left around the lookup, same as the child-link fix below.
-            const aTop = effectiveXY(line.aId, line.aX, line.aY - NODE_HEIGHT / 2)
-            const bTop = effectiveXY(line.bId, line.bX, line.bY - NODE_HEIGHT / 2)
-            const a = { x: aTop.x, y: aTop.y + NODE_HEIGHT / 2 }
-            const b = { x: bTop.x, y: bTop.y + NODE_HEIGHT / 2 }
+            const a = parentAnchor(line.aId)
+            const b = parentAnchor(line.bId)
             return (
               <path
                 key={line.id}
@@ -240,8 +232,7 @@ export function TreeCanvas({
             // Average both parents' anchor points when the child has two
             // (a couple), so the branch leaves from the line between them
             // instead of fanning toward whichever one the layout favored.
-            const useMidpoint = link.parentIds.length > 1
-            const parentPoints = link.parentIds.map((pid) => parentAnchor(pid, useMidpoint))
+            const parentPoints = link.parentIds.map(parentAnchor)
             const parent = {
               x: parentPoints.reduce((sum, p) => sum + p.x, 0) / parentPoints.length,
               y: parentPoints.reduce((sum, p) => sum + p.y, 0) / parentPoints.length,

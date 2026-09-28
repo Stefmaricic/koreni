@@ -327,14 +327,17 @@ export function computeTreeLayout(graph: FamilyGraph, style: TreeStyle = 'classi
     const ay = nodeY.get(rel.personAId)
     const by = nodeY.get(rel.personBId)
     if (ax === undefined || bx === undefined || ay === undefined || by === undefined) continue
+    // Anchor at the same card edge a child branch leaves from (top in
+    // 'rooted', bottom in 'classic') rather than the vertical center, which
+    // cut straight through the avatar photo/initials circle.
     partnerLines.push({
       id: rel.id,
       aId: rel.personAId,
       bId: rel.personBId,
       aX: ax,
-      aY: ay + NODE_HEIGHT / 2,
+      aY: ay + NODE_HEIGHT,
       bX: bx,
-      bY: by + NODE_HEIGHT / 2,
+      bY: by + NODE_HEIGHT,
     })
   }
 
