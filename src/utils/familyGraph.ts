@@ -1,4 +1,4 @@
-import type { Person, Relationship } from '@/types/models'
+import type { ChildLinkCurve, Person, Relationship } from '@/types/models'
 
 /**
  * Derives lookups (parents/children/partners/siblings) from the flat
@@ -11,10 +11,14 @@ export class FamilyGraph {
   private readonly childrenOf = new Map<string, Set<string>>()
   private readonly partnersOf = new Map<string, Set<string>>()
   readonly relationships: Relationship[]
+  private readonly childLinkCurveByKey = new Map<string, { x: number; y: number }>()
 
-  constructor(people: Person[], relationships: Relationship[]) {
+  constructor(people: Person[], relationships: Relationship[], childLinkCurves: ChildLinkCurve[] = []) {
     this.people = new Map(people.map((p) => [p.id, p]))
     this.relationships = relationships
+    for (const curve of childLinkCurves) {
+      this.childLinkCurveByKey.set(`${curve.childId}|${curve.parentKey}`, { x: curve.curveX, y: curve.curveY })
+    }
 
     for (const rel of relationships) {
       if (rel.type === 'parent') {
@@ -87,5 +91,10 @@ export class FamilyGraph {
         r.type === 'partner' &&
         ((r.personAId === aId && r.personBId === bId) || (r.personAId === bId && r.personBId === aId)),
     )?.id
+  }
+
+  /** A child branch's persisted manual curve control point, or null if it still uses the automatic bow. */
+  childLinkCurve(childId: string, parentKey: string): { x: number; y: number } | null {
+    return this.childLinkCurveByKey.get(`${childId}|${parentKey}`) ?? null
   }
 }

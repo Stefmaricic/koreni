@@ -249,6 +249,7 @@ export function TreePage() {
 
       <div className="relative flex-1">
         <TreeCanvas
+          treeId={tree.id}
           graph={graph}
           style={treeStyle}
           onStyleChange={setTreeStyle}

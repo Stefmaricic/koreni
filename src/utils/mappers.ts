@@ -1,5 +1,5 @@
-import type { FamilyMemberRow, RelationshipRow } from '@/types/database'
-import type { Person, PersonFormInput, Relationship } from '@/types/models'
+import type { ChildLinkCurveRow, FamilyMemberRow, RelationshipRow } from '@/types/database'
+import type { ChildLinkCurve, Person, PersonFormInput, Relationship } from '@/types/models'
 
 export function toPerson(row: FamilyMemberRow): Person {
   return {
@@ -29,6 +29,19 @@ export function toRelationship(row: RelationshipRow): Relationship {
     type: row.type,
     personAId: row.person_a_id,
     personBId: row.person_b_id,
+    curveX: row.curve_x,
+    curveY: row.curve_y,
+  }
+}
+
+export function toChildLinkCurve(row: ChildLinkCurveRow): ChildLinkCurve {
+  return {
+    id: row.id,
+    treeId: row.tree_id,
+    childId: row.child_id,
+    parentKey: row.parent_key,
+    curveX: row.curve_x,
+    curveY: row.curve_y,
   }
 }
 

@@ -40,6 +40,8 @@ export interface PartnerLine {
 export interface ChildLink {
   id: string
   parentIds: string[]
+  /** Stable key for this branch's curve override: the sorted parent ids, independent of the layout's internal (and less stable) parent-unit id. */
+  parentKey: string
   childId: string
   parentX: number
   parentY: number
@@ -372,6 +374,7 @@ export function computeTreeLayout(graph: FamilyGraph, style: TreeStyle = 'classi
       childLinks.push({
         id: `${parentUnitId}->${childId}`,
         parentIds: [...parentUnit.memberIds],
+        parentKey: [...parentUnit.memberIds].sort().join(','),
         childId,
         parentX,
         parentY,

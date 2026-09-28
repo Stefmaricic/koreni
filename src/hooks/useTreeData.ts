@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { listChildLinkCurves } from '@/services/childLinkCurveService'
 import { listPeople } from '@/services/personService'
 import { listRelationships } from '@/services/relationshipService'
 import { getMyRole, getTree } from '@/services/treeService'
@@ -20,14 +21,15 @@ export function useTreeData(treeId: string | undefined) {
     setLoading(true)
     setError(null)
     try {
-      const [treeRow, people, relationships, myRole] = await Promise.all([
+      const [treeRow, people, relationships, childLinkCurves, myRole] = await Promise.all([
         getTree(treeId),
         listPeople(treeId),
         listRelationships(treeId),
+        listChildLinkCurves(treeId),
         getMyRole(treeId, userId),
       ])
       setTree(treeRow)
-      setGraph(new FamilyGraph(people, relationships))
+      setGraph(new FamilyGraph(people, relationships, childLinkCurves))
       setRole(myRole)
     } catch (err) {
       setError(err instanceof Error ? err : new Error('Failed to load tree'))

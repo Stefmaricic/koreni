@@ -1,4 +1,5 @@
 import type { FamilyGraph } from '@/utils/familyGraph'
+import { branchPath, branchPathThroughPoint, jitter, partnerDefaultPoint, partnerPath } from '@/utils/lineCurves'
 import { birthYear, personFullName } from '@/utils/mappers'
 import { LAYOUT_PADDING, NODE_HEIGHT, NODE_WIDTH, computeTreeLayout, type TreeStyle } from '@/utils/treeLayout'
 import type { MemberGender, Person } from '@/types/models'
@@ -53,28 +54,6 @@ function lerpColor(a: string, b: string, t: number) {
   const pb = [1, 3, 5].map((i) => parseInt(b.slice(i, i + 2), 16))
   const mix = pa.map((v, i) => Math.round(v + (pb[i] - v) * t))
   return `#${mix.map((v) => v.toString(16).padStart(2, '0')).join('')}`
-}
-
-function jitter(id: string): number {
-  let h = 0
-  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) | 0
-  return ((h % 1000) / 1000) * 2 - 1
-}
-
-function branchPath(parentX: number, parentY: number, childX: number, childY: number, bend: number) {
-  const dx = childX - parentX
-  const midY = (parentY + childY) / 2
-  const c1x = parentX + dx * 0.15 + bend * 12
-  const c1y = parentY + (midY - parentY) * 0.6
-  const c2x = childX - dx * 0.15 - bend * 6
-  const c2y = childY - (childY - midY) * 0.6
-  return `M ${parentX} ${parentY} C ${c1x} ${c1y}, ${c2x} ${c2y}, ${childX} ${childY}`
-}
-
-function partnerPath(x1: number, y1: number, x2: number, y2: number, bend: number) {
-  const midX = (x1 + x2) / 2
-  const midY = (y1 + y2) / 2
-  return `M ${x1} ${y1} Q ${midX} ${midY + bend * 6}, ${x2} ${y2}`
 }
 
 function rootsGraphicSvg(x: number, topY: number, bottomY: number, opacity: number): string {
@@ -141,11 +120,18 @@ export function buildExportSvg(graph: FamilyGraph, style: TreeStyle, treeName: s
     return { x: top.x, y: style === 'classic' ? top.y + NODE_HEIGHT : top.y }
   }
 
+  const partnerCurveById = new Map(
+    graph.relationships
+      .filter((r) => r.type === 'partner')
+      .map((r) => [r.id, r.curveX != null && r.curveY != null ? { x: r.curveX, y: r.curveY } : null] as const),
+  )
+
   for (const line of layout.partnerLines) {
     const a = parentAnchor(line.aId)
     const b = parentAnchor(line.bId)
+    const cp = partnerCurveById.get(line.id) ?? partnerDefaultPoint(a.x, a.y, b.x, b.y, line.id)
     parts.push(
-      `<path d="${partnerPath(a.x, a.y, b.x, b.y, jitter(line.id))}" stroke="${PALETTE.earthLine}" stroke-width="2" stroke-linecap="round" fill="none" />`,
+      `<path d="${partnerPath(a.x, a.y, b.x, b.y, cp)}" stroke="${PALETTE.earthLine}" stroke-width="2" stroke-linecap="round" fill="none" />`,
     )
   }
 
@@ -164,8 +150,12 @@ export function buildExportSvg(graph: FamilyGraph, style: TreeStyle, treeName: s
     const childTopFallback = link.childY - (style === 'classic' ? 0 : NODE_HEIGHT)
     const childTop = effectiveXY(link.childId, link.childX, childTopFallback)
     const child = { x: childTop.x, y: style === 'classic' ? childTop.y : childTop.y + NODE_HEIGHT }
+    const persistedBelly = graph.childLinkCurve(link.childId, link.parentKey)
+    const d = persistedBelly
+      ? branchPathThroughPoint(parent.x, parent.y, child.x, child.y, persistedBelly)
+      : branchPath(parent.x, parent.y, child.x, child.y, jitter(link.id))
     parts.push(
-      `<path d="${branchPath(parent.x, parent.y, child.x, child.y, jitter(link.id))}" stroke="${link.primary ? color : PALETTE.earthLine}" stroke-width="${strokeWidth}" stroke-linecap="round" opacity="${opacity}"${dash} fill="none" />`,
+      `<path d="${d}" stroke="${link.primary ? color : PALETTE.earthLine}" stroke-width="${strokeWidth}" stroke-linecap="round" opacity="${opacity}"${dash} fill="none" />`,
     )
   }
 

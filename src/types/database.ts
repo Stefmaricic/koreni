@@ -64,7 +64,18 @@ export type RelationshipRow = {
   type: RelationshipType
   person_a_id: string
   person_b_id: string
+  curve_x: number | null
+  curve_y: number | null
   created_at: string
+}
+
+export type ChildLinkCurveRow = {
+  id: string
+  tree_id: string
+  child_id: string
+  parent_key: string
+  curve_x: number
+  curve_y: number
 }
 
 export type FeedbackRow = {
@@ -183,6 +194,12 @@ export interface Database {
         Insert: Partial<ActivityLogRow> & { tree_id: string; action: ActivityAction; person_name: string }
         Update: Partial<ActivityLogRow>
         Relationships: [FkTo<'family_trees', ['tree_id']>, FkTo<'profiles', ['actor_id']>]
+      }
+      child_link_curves: {
+        Row: ChildLinkCurveRow
+        Insert: Partial<ChildLinkCurveRow> & { tree_id: string; child_id: string; parent_key: string; curve_x: number; curve_y: number }
+        Update: Partial<ChildLinkCurveRow>
+        Relationships: [FkTo<'family_trees', ['tree_id']>, FkTo<'family_members', ['child_id']>]
       }
     }
     Views: Record<string, never>

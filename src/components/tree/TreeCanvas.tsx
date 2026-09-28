@@ -2,16 +2,29 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ThemeIcon } from '@/components/layout/ThemeToggle'
 import { FeedbackIcon } from '@/components/feedback/FeedbackWidget'
+import { LineHandle } from '@/components/tree/LineHandle'
 import { TreeNode } from '@/components/tree/TreeNode'
 import { Button } from '@/components/ui/Button'
 import { usePanZoom } from '@/hooks/usePanZoom'
+import { setChildLinkCurve } from '@/services/childLinkCurveService'
 import { setPersonPosition } from '@/services/personService'
+import { setPartnerLineCurve } from '@/services/relationshipService'
 import { useThemeStore } from '@/stores/themeStore'
 import { toastError } from '@/stores/toastStore'
 import type { FamilyGraph } from '@/utils/familyGraph'
+import {
+  branchBellyPoint,
+  branchPath,
+  branchPathThroughPoint,
+  jitter,
+  partnerDefaultPoint,
+  partnerPath,
+  type CurvePoint,
+} from '@/utils/lineCurves'
 import { computeTreeLayout, NODE_HEIGHT, type TreeStyle } from '@/utils/treeLayout'
 
 interface TreeCanvasProps {
+  treeId: string
   graph: FamilyGraph
   style: TreeStyle
   onStyleChange: (style: TreeStyle) => void
@@ -49,31 +62,6 @@ function lerpColor(a: string, b: string, t: number) {
 const ROOT_COLOR = '#8f4f30' // earth-600
 const CANOPY_COLOR = '#3f7548' // root-500
 
-/** Deterministic -1..1 "personality" for a given id, used to bend each branch a little differently so the tree doesn't look mechanically uniform. */
-function jitter(id: string): number {
-  let h = 0
-  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) | 0
-  return ((h % 1000) / 1000) * 2 - 1
-}
-
-/** A smooth branch from a parent card's bottom edge to a child card's top edge, leaving at a natural angle rather than a dead-straight vertical. */
-function branchPath(parentX: number, parentY: number, childX: number, childY: number, bend: number) {
-  const dx = childX - parentX
-  const midY = (parentY + childY) / 2
-  const c1x = parentX + dx * 0.15 + bend * 12
-  const c1y = parentY + (midY - parentY) * 0.6
-  const c2x = childX - dx * 0.15 - bend * 6
-  const c2y = childY - (childY - midY) * 0.6
-  return `M ${parentX} ${parentY} C ${c1x} ${c1y}, ${c2x} ${c2y}, ${childX} ${childY}`
-}
-
-/** A short, gently bowed connector between two partners, thinner and lighter than a bloodline branch. */
-function partnerPath(x1: number, y1: number, x2: number, y2: number, bend: number) {
-  const midX = (x1 + x2) / 2
-  const midY = (y1 + y2) / 2
-  return `M ${x1} ${y1} Q ${midX} ${midY + bend * 6}, ${x2} ${y2}`
-}
-
 /** A small illustrated trunk + spreading roots, anchored at (x, bottomY) and reaching up to topY. */
 function RootsGraphic({ x, topY, bottomY, opacity = 1 }: { x: number; topY: number; bottomY: number; opacity?: number }) {
   return (
@@ -88,6 +76,7 @@ function RootsGraphic({ x, topY, bottomY, opacity = 1 }: { x: number; topY: numb
 }
 
 export function TreeCanvas({
+  treeId,
   graph,
   style,
   onStyleChange,
@@ -109,6 +98,14 @@ export function TreeCanvas({
   // the next full refresh catches up); absent means "defer to the person's
   // saved position, if any."
   const [liveOverrides, setLiveOverrides] = useState<Map<string, { x: number; y: number } | null>>(new Map())
+
+  // Same null/absent convention as liveOverrides, but for a connector line's
+  // curve control point. Keyed by `partner:<relationshipId>` or
+  // `child:<childId>|<parentKey>` so both kinds of line share one map.
+  const [lineOverrides, setLineOverrides] = useState<Map<string, CurvePoint | null>>(new Map())
+  // Which line currently shows its drag handle -- revealed by double-clicking
+  // the line in arrange mode, one at a time.
+  const [activeLineId, setActiveLineId] = useState<string | null>(null)
 
   const layout = useMemo(() => computeTreeLayout(graph, style), [graph, style])
   const peopleById = graph.people
@@ -152,6 +149,64 @@ export function TreeCanvas({
     setPersonPosition(personId, null).catch((err) => toastError(err))
   }, [])
 
+  const effectiveControlPoint = useCallback(
+    (lineKey: string, persisted: CurvePoint | null, fallback: CurvePoint) => {
+      if (lineOverrides.has(lineKey)) {
+        const v = lineOverrides.get(lineKey)
+        return v ?? fallback
+      }
+      return persisted ?? fallback
+    },
+    [lineOverrides],
+  )
+
+  const hasLineOverride = useCallback(
+    (lineKey: string, persisted: CurvePoint | null) => {
+      if (lineOverrides.has(lineKey)) return lineOverrides.get(lineKey) !== null
+      return persisted != null
+    },
+    [lineOverrides],
+  )
+
+  const handleLineDragMove = useCallback((lineKey: string, x: number, y: number) => {
+    setLineOverrides((prev) => new Map(prev).set(lineKey, { x, y }))
+  }, [])
+
+  const handlePartnerLineDragEnd = useCallback((lineKey: string, relationshipId: string, x: number, y: number) => {
+    setLineOverrides((prev) => new Map(prev).set(lineKey, { x, y }))
+    setPartnerLineCurve(relationshipId, { x, y }).catch((err) => toastError(err))
+  }, [])
+
+  const handlePartnerLineReset = useCallback((lineKey: string, relationshipId: string) => {
+    setLineOverrides((prev) => new Map(prev).set(lineKey, null))
+    setPartnerLineCurve(relationshipId, null).catch((err) => toastError(err))
+  }, [])
+
+  const handleChildLinkDragEnd = useCallback(
+    (lineKey: string, childId: string, parentKey: string, x: number, y: number) => {
+      setLineOverrides((prev) => new Map(prev).set(lineKey, { x, y }))
+      setChildLinkCurve(treeId, childId, parentKey, { x, y }).catch((err) => toastError(err))
+    },
+    [treeId],
+  )
+
+  const handleChildLinkReset = useCallback(
+    (lineKey: string, childId: string, parentKey: string) => {
+      setLineOverrides((prev) => new Map(prev).set(lineKey, null))
+      setChildLinkCurve(treeId, childId, parentKey, null).catch((err) => toastError(err))
+    },
+    [treeId],
+  )
+
+  const partnerCurveById = useMemo(() => {
+    const m = new Map<string, CurvePoint | null>()
+    for (const rel of graph.relationships) {
+      if (rel.type !== 'partner') continue
+      m.set(rel.id, rel.curveX != null && rel.curveY != null ? { x: rel.curveX, y: rel.curveY } : null)
+    }
+    return m
+  }, [graph])
+
   /**
    * A specific person's card-edge anchor point -- the side facing whoever
    * they're connected to below/above (top in 'rooted', bottom in 'classic'),
@@ -194,6 +249,7 @@ export function TreeCanvas({
         backgroundImage: 'radial-gradient(circle, var(--color-cream-300) 1px, transparent 1px)',
         backgroundSize: '24px 24px',
       }}
+      onClick={() => setActiveLineId(null)}
       {...handlers}
     >
       <svg width="100%" height="100%" className="cursor-grab active:cursor-grabbing">
@@ -210,15 +266,42 @@ export function TreeCanvas({
           {layout.partnerLines.map((line) => {
             const a = parentAnchor(line.aId)
             const b = parentAnchor(line.bId)
+            const lineKey = `partner:${line.id}`
+            const defaultCp = partnerDefaultPoint(a.x, a.y, b.x, b.y, line.id)
+            const persisted = partnerCurveById.get(line.id) ?? null
+            const cp = effectiveControlPoint(lineKey, persisted, defaultCp)
+            const overridden = hasLineOverride(lineKey, persisted)
+            const d = partnerPath(a.x, a.y, b.x, b.y, cp)
             return (
-              <path
-                key={line.id}
-                d={partnerPath(a.x, a.y, b.x, b.y, jitter(line.id))}
-                stroke="var(--color-earth-300)"
-                strokeWidth={2}
-                fill="none"
-                strokeLinecap="round"
-              />
+              <g key={line.id}>
+                <path d={d} stroke="var(--color-earth-300)" strokeWidth={2} fill="none" strokeLinecap="round" />
+                {arrangeMode && canEdit && (
+                  <path
+                    d={d}
+                    stroke="black"
+                    strokeOpacity={0}
+                    strokeWidth={16}
+                    fill="none"
+                    className="cursor-pointer"
+                    onDoubleClick={(e) => {
+                      e.stopPropagation()
+                      setActiveLineId(lineKey)
+                    }}
+                  />
+                )}
+                {activeLineId === lineKey && (
+                  <LineHandle
+                    lineId={lineKey}
+                    x={cp.x}
+                    y={cp.y}
+                    scale={transform.scale}
+                    hasOverride={overridden}
+                    onDragMove={handleLineDragMove}
+                    onDragEnd={(id, x, y) => handlePartnerLineDragEnd(id, line.id, x, y)}
+                    onReset={(id) => handlePartnerLineReset(id, line.id)}
+                  />
+                )}
+              </g>
             )
           })}
 
@@ -240,17 +323,53 @@ export function TreeCanvas({
             const childTopFallback = link.childY - (style === 'classic' ? 0 : NODE_HEIGHT)
             const childTop = effectiveXY(link.childId, link.childX, childTopFallback)
             const child = { x: childTop.x, y: style === 'classic' ? childTop.y : childTop.y + NODE_HEIGHT }
+            const bend = jitter(link.id)
+            const lineKey = `child:${link.childId}|${link.parentKey}`
+            const persisted = graph.childLinkCurve(link.childId, link.parentKey)
+            const defaultBelly = branchBellyPoint(parent.x, parent.y, child.x, child.y, bend)
+            const belly = effectiveControlPoint(lineKey, persisted, defaultBelly)
+            const overridden = hasLineOverride(lineKey, persisted)
+            const d = overridden
+              ? branchPathThroughPoint(parent.x, parent.y, child.x, child.y, belly)
+              : branchPath(parent.x, parent.y, child.x, child.y, bend)
             return (
-              <path
-                key={link.id}
-                d={branchPath(parent.x, parent.y, child.x, child.y, jitter(link.id))}
-                stroke={link.primary ? color : 'var(--color-earth-300)'}
-                strokeWidth={strokeWidth}
-                strokeLinecap="round"
-                strokeDasharray={link.primary ? undefined : '2 5'}
-                opacity={link.primary ? 1 : 0.6}
-                fill="none"
-              />
+              <g key={link.id}>
+                <path
+                  d={d}
+                  stroke={link.primary ? color : 'var(--color-earth-300)'}
+                  strokeWidth={strokeWidth}
+                  strokeLinecap="round"
+                  strokeDasharray={link.primary ? undefined : '2 5'}
+                  opacity={link.primary ? 1 : 0.6}
+                  fill="none"
+                />
+                {arrangeMode && canEdit && (
+                  <path
+                    d={d}
+                    stroke="black"
+                    strokeOpacity={0}
+                    strokeWidth={16}
+                    fill="none"
+                    className="cursor-pointer"
+                    onDoubleClick={(e) => {
+                      e.stopPropagation()
+                      setActiveLineId(lineKey)
+                    }}
+                  />
+                )}
+                {activeLineId === lineKey && (
+                  <LineHandle
+                    lineId={lineKey}
+                    x={belly.x}
+                    y={belly.y}
+                    scale={transform.scale}
+                    hasOverride={overridden}
+                    onDragMove={handleLineDragMove}
+                    onDragEnd={(id, x, y) => handleChildLinkDragEnd(id, link.childId, link.parentKey, x, y)}
+                    onReset={(id) => handleChildLinkReset(id, link.childId, link.parentKey)}
+                  />
+                )}
+              </g>
             )
           })}
 
@@ -278,6 +397,12 @@ export function TreeCanvas({
         </g>
       </svg>
 
+      {arrangeMode && canEdit && (
+        <div className="pointer-events-none absolute left-1/2 top-3 -translate-x-1/2 rounded-full bg-ink-700/90 px-3 py-1.5 text-xs text-white shadow-sm">
+          {t('tree.arrangeHint')}
+        </div>
+      )}
+
       <div className="absolute bottom-4 right-4 flex flex-col gap-2">
         <IconButton label={t('tree.zoomIn')} onClick={zoomIn}>
           <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={2}>
@@ -302,7 +427,10 @@ export function TreeCanvas({
           <IconButton
             label={arrangeMode ? t('tree.arrangeDone') : t('tree.arrange')}
             active={arrangeMode}
-            onClick={() => setArrangeMode((v) => !v)}
+            onClick={() => {
+              setArrangeMode((v) => !v)
+              setActiveLineId(null)
+            }}
           >
             <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={2}>
               <path

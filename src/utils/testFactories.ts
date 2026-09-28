@@ -32,6 +32,8 @@ export function makeRelationship(overrides: Partial<Relationship> & Pick<Relatio
   return {
     id: overrides.id ?? `rel-${relCounter}`,
     treeId: 'tree-1',
+    curveX: null,
+    curveY: null,
     ...overrides,
   }
 }

@@ -44,3 +44,12 @@ export async function removeRelationship(id: string): Promise<void> {
   const { error } = await supabase.from('relationships').delete().eq('id', id)
   if (error) throw error
 }
+
+/** Sets or clears (pass null) a partner line's manual curve control point on the tree canvas. */
+export async function setPartnerLineCurve(relationshipId: string, point: { x: number; y: number } | null): Promise<void> {
+  const { error } = await supabase
+    .from('relationships')
+    .update({ curve_x: point?.x ?? null, curve_y: point?.y ?? null })
+    .eq('id', relationshipId)
+  if (error) throw error
+}

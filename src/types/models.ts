@@ -50,6 +50,19 @@ export interface Relationship {
   personAId: string
   /** For 'parent': the child. For 'partner': the other side of the pair. */
   personBId: string
+  /** Manual override for a 'partner' line's curve control point; null means "use the automatic bow." Unused for 'parent' relationships. */
+  curveX: number | null
+  curveY: number | null
+}
+
+/** Manual curve override for a child branch line. A branch doesn't map 1:1 to a single relationship row (two parent rows can collapse into one visual branch), so it's keyed by the child plus the sorted set of parent ids that make up that branch -- see ChildLink.parentKey. */
+export interface ChildLinkCurve {
+  id: string
+  treeId: string
+  childId: string
+  parentKey: string
+  curveX: number
+  curveY: number
 }
 
 export interface PersonFormInput {
