@@ -24,6 +24,8 @@ interface ShareTreeModalProps {
   open: boolean
   onClose: () => void
   treeId: string
+  /** Only the owner/admin can invite, remove, or change roles — everyone else gets a read-only member list. */
+  isOwner: boolean
 }
 
 function roleLabelKey(role: MembershipRole) {
@@ -34,7 +36,7 @@ function isActiveInvite(invite: TreeInviteRow) {
   return !invite.revoked && !invite.used_by && new Date(invite.expires_at) > new Date()
 }
 
-export function ShareTreeModal({ open, onClose, treeId }: ShareTreeModalProps) {
+export function ShareTreeModal({ open, onClose, treeId, isOwner }: ShareTreeModalProps) {
   const { t, i18n } = useTranslation()
   const userId = useAuthStore((s) => s.user?.id)
   const push = useToastStore((s) => s.push)
@@ -50,8 +52,11 @@ export function ShareTreeModal({ open, onClose, treeId }: ShareTreeModalProps) {
   useEffect(() => {
     if (!open) return
     listTreeMembers(treeId).then(setMembers).catch((err) => toastError(err))
-    listInvites(treeId).then(setInvites).catch((err) => toastError(err))
-  }, [open, treeId])
+    // Invite management (tree_invites) is owner-only at the RLS layer, so a
+    // non-owner's read would just fail RLS -- skip it rather than surface
+    // a spurious error toast for something they can't see anyway.
+    if (isOwner) listInvites(treeId).then(setInvites).catch((err) => toastError(err))
+  }, [open, treeId, isOwner])
 
   const copyLink = async (token: string) => {
     const url = `${window.location.origin}/invite/${token}`
@@ -124,7 +129,7 @@ export function ShareTreeModal({ open, onClose, treeId }: ShareTreeModalProps) {
   ]
 
   return (
-    <Modal open={open} onClose={onClose} title={t('tree.shareTitle')} size="md">
+    <Modal open={open} onClose={onClose} title={t(isOwner ? 'tree.shareTitle' : 'tree.membersTitle')} size="md">
       <div className="flex flex-col gap-5">
         <div>
           <h3 className="mb-2 text-sm font-semibold text-ink-700">{t('tree.shareMembersTitle')}</h3>
@@ -133,11 +138,7 @@ export function ShareTreeModal({ open, onClose, treeId }: ShareTreeModalProps) {
               <div key={member.userId} className="flex items-center gap-2.5">
                 <Avatar firstName={member.displayName ?? undefined} size="sm" />
                 <span className="flex-1 text-sm text-ink-700">{member.displayName ?? t('common.unknown')}</span>
-                {member.role === 'owner' ? (
-                  <span className="rounded-full bg-cream-100 px-2.5 py-0.5 text-xs font-medium text-ink-600">
-                    {t(roleLabelKey(member.role))}
-                  </span>
-                ) : (
+                {isOwner && member.role !== 'owner' ? (
                   <select
                     value={member.role}
                     disabled={changingRoleFor === member.userId}
@@ -150,8 +151,12 @@ export function ShareTreeModal({ open, onClose, treeId }: ShareTreeModalProps) {
                       </option>
                     ))}
                   </select>
+                ) : (
+                  <span className="rounded-full bg-cream-100 px-2.5 py-0.5 text-xs font-medium text-ink-600">
+                    {t(roleLabelKey(member.role))}
+                  </span>
                 )}
-                {member.role !== 'owner' && member.userId !== userId && (
+                {isOwner && member.role !== 'owner' && member.userId !== userId && (
                   <button
                     type="button"
                     onClick={() => setRemoving(member)}
@@ -165,24 +170,26 @@ export function ShareTreeModal({ open, onClose, treeId }: ShareTreeModalProps) {
           </div>
         </div>
 
-        <div className="border-t border-cream-200 pt-4">
-          <h3 className="mb-2 text-sm font-semibold text-ink-700">{t('tree.shareInviteTitle')}</h3>
-          <div className="flex items-end gap-2">
-            <div className="flex-1">
-              <Select
-                label={t('tree.shareRoleLabel')}
-                value={role}
-                onChange={(v) => setRole(v as InviteRole)}
-                options={roleOptions}
-              />
+        {isOwner && (
+          <div className="border-t border-cream-200 pt-4">
+            <h3 className="mb-2 text-sm font-semibold text-ink-700">{t('tree.shareInviteTitle')}</h3>
+            <div className="flex items-end gap-2">
+              <div className="flex-1">
+                <Select
+                  label={t('tree.shareRoleLabel')}
+                  value={role}
+                  onChange={(v) => setRole(v as InviteRole)}
+                  options={roleOptions}
+                />
+              </div>
+              <Button onClick={handleGenerate} loading={generating}>
+                {t('tree.shareGenerateLink')}
+              </Button>
             </div>
-            <Button onClick={handleGenerate} loading={generating}>
-              {t('tree.shareGenerateLink')}
-            </Button>
           </div>
-        </div>
+        )}
 
-        {activeInvites.length > 0 && (
+        {isOwner && activeInvites.length > 0 && (
           <div className="border-t border-cream-200 pt-4">
             <h3 className="mb-2 text-sm font-semibold text-ink-700">{t('tree.sharePendingTitle')}</h3>
             <div className="flex flex-col gap-2">

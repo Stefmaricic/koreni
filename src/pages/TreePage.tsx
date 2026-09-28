@@ -233,11 +233,11 @@ export function TreePage() {
           </button>
         )}
 
-        {role === 'owner' && (
+        {role !== null && (
           <button
             onClick={() => setShareOpen(true)}
-            aria-label={t('tree.share')}
-            title={t('tree.share')}
+            aria-label={t(role === 'owner' ? 'tree.share' : 'tree.membersTitle')}
+            title={t(role === 'owner' ? 'tree.share' : 'tree.membersTitle')}
             className="rounded-full p-2 text-ink-600 hover:bg-cream-100"
           >
             <svg width="19" height="19" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.8}>
@@ -333,7 +333,7 @@ export function TreePage() {
 
       <FeedbackModal open={feedbackOpen} onClose={() => setFeedbackOpen(false)} />
 
-      {treeId && <ShareTreeModal open={shareOpen} onClose={() => setShareOpen(false)} treeId={treeId} />}
+      {treeId && <ShareTreeModal open={shareOpen} onClose={() => setShareOpen(false)} treeId={treeId} isOwner={role === 'owner'} />}
 
       {treeId && <ActivityLogModal open={historyOpen} onClose={() => setHistoryOpen(false)} treeId={treeId} />}
 
