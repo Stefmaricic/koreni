@@ -1,12 +1,12 @@
 import { supabase } from '@/lib/supabase'
-import type { ActivityAction, ActivityFieldDiff } from '@/types/database'
+import type { ActivityAction, ActivityDetails } from '@/types/database'
 
 export interface ActivityEntry {
   id: string
   action: ActivityAction
   personName: string
   actorName: string | null
-  details: ActivityFieldDiff | null
+  details: ActivityDetails | null
   createdAt: string
 }
 
@@ -14,7 +14,7 @@ interface ActivityRow {
   id: string
   action: ActivityAction
   person_name: string
-  details: ActivityFieldDiff | null
+  details: ActivityDetails | null
   created_at: string
   actor: { display_name: string | null } | null
 }

@@ -15,7 +15,10 @@ create table activity_log (
   id uuid primary key default gen_random_uuid(),
   tree_id uuid not null references family_trees (id) on delete cascade,
   actor_id uuid references profiles (id) on delete set null,
-  action text not null check (action in ('person_added', 'person_updated', 'person_removed')),
+  action text not null check (action in (
+    'person_added', 'person_updated', 'person_removed',
+    'relationship_added', 'relationship_removed'
+  )),
   person_name text not null,
   details jsonb,
   created_at timestamptz not null default now()
@@ -81,3 +84,54 @@ $$;
 create trigger family_members_activity_log
   after insert or update or delete on family_members
   for each row execute function public.log_family_member_change();
+
+-- Connecting/disconnecting two people (parent/child or partner). Note: when a
+-- person is deleted, their relationships cascade-delete too and each fires
+-- this trigger as well — the removed person's name may show as unavailable
+-- there since their family_members row is already gone by that point, but
+-- the paired person's name and the standalone person_removed entry still
+-- make the event clear.
+create or replace function public.log_relationship_change()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_row relationships%rowtype;
+  v_action text;
+  v_a_name text;
+  v_b_name text;
+begin
+  if tg_op = 'INSERT' then
+    v_row := new;
+    v_action := 'relationship_added';
+  else
+    v_row := old;
+    v_action := 'relationship_removed';
+  end if;
+
+  select trim(first_name || ' ' || coalesce(last_name, '')) into v_a_name
+  from family_members where id = v_row.person_a_id;
+  select trim(first_name || ' ' || coalesce(last_name, '')) into v_b_name
+  from family_members where id = v_row.person_b_id;
+
+  insert into activity_log (tree_id, actor_id, action, person_name, details)
+  values (
+    v_row.tree_id,
+    auth.uid(),
+    v_action,
+    coalesce(v_a_name, '?') || ' & ' || coalesce(v_b_name, '?'),
+    jsonb_build_object('relationship_type', v_row.type, 'person_a_name', v_a_name, 'person_b_name', v_b_name)
+  );
+
+  if tg_op = 'DELETE' then
+    return old;
+  end if;
+  return new;
+end;
+$$;
+
+create trigger relationships_activity_log
+  after insert or delete on relationships
+  for each row execute function public.log_relationship_change();

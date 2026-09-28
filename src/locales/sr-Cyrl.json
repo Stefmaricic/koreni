@@ -195,9 +195,14 @@
   },
   "activity": {
     "unknownActor": "Непознат корисник",
+    "unknownPerson": "непозната особа",
     "personAdded": "{{actor}} — додата особа „{{name}}“",
     "personRemoved": "{{actor}} — уклоњена особа „{{name}}“",
     "personUpdated": "{{actor}} — измењено код особе „{{name}}“: {{fields}}",
+    "partnerAdded": "{{actor}} — додата веза: „{{nameA}}“ и „{{nameB}}“ (партнери)",
+    "partnerRemoved": "{{actor}} — уклоњена веза: „{{nameA}}“ и „{{nameB}}“ (партнери)",
+    "parentAdded": "{{actor}} — додата веза: „{{parent}}“ (родитељ) → „{{child}}“ (дете)",
+    "parentRemoved": "{{actor}} — уклоњена веза: „{{parent}}“ (родитељ) → „{{child}}“ (дете)",
     "field": {
       "firstName": "име",
       "lastName": "презиме",

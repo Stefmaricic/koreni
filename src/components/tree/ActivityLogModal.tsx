@@ -33,18 +33,30 @@ function ActivityLine({ entry }: { entry: ActivityEntry }) {
   const { t, i18n } = useTranslation()
   const actor = entry.actorName ?? t('activity.unknownActor')
 
+  const unknownPerson = t('activity.unknownPerson')
+
   let text: string
   if (entry.action === 'person_added') {
     text = t('activity.personAdded', { actor, name: entry.personName })
   } else if (entry.action === 'person_removed') {
     text = t('activity.personRemoved', { actor, name: entry.personName })
-  } else {
+  } else if (entry.action === 'person_updated') {
     const changedFields = TRACKED_FIELDS.filter((f) => entry.details?.[f]).map((f) => t(fieldLabelKey(f)))
     text = t('activity.personUpdated', {
       actor,
       name: entry.personName,
       fields: changedFields.join(', '),
     })
+  } else {
+    const relType = entry.details?.relationship_type
+    const nameA = (entry.details?.person_a_name as string | null) ?? unknownPerson
+    const nameB = (entry.details?.person_b_name as string | null) ?? unknownPerson
+    const added = entry.action === 'relationship_added'
+    if (relType === 'partner') {
+      text = t(added ? 'activity.partnerAdded' : 'activity.partnerRemoved', { actor, nameA, nameB })
+    } else {
+      text = t(added ? 'activity.parentAdded' : 'activity.parentRemoved', { actor, parent: nameA, child: nameB })
+    }
   }
 
   return (

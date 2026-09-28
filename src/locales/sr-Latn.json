@@ -195,9 +195,14 @@
   },
   "activity": {
     "unknownActor": "Nepoznat korisnik",
+    "unknownPerson": "nepoznata osoba",
     "personAdded": "{{actor}} — dodata osoba „{{name}}“",
     "personRemoved": "{{actor}} — uklonjena osoba „{{name}}“",
     "personUpdated": "{{actor}} — izmenjeno kod osobe „{{name}}“: {{fields}}",
+    "partnerAdded": "{{actor}} — dodata veza: „{{nameA}}“ i „{{nameB}}“ (partneri)",
+    "partnerRemoved": "{{actor}} — uklonjena veza: „{{nameA}}“ i „{{nameB}}“ (partneri)",
+    "parentAdded": "{{actor}} — dodata veza: „{{parent}}“ (roditelj) → „{{child}}“ (dete)",
+    "parentRemoved": "{{actor}} — uklonjena veza: „{{parent}}“ (roditelj) → „{{child}}“ (dete)",
     "field": {
       "firstName": "ime",
       "lastName": "prezime",

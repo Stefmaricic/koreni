@@ -87,9 +87,16 @@ export type TreeInviteRow = {
   revoked: boolean
 }
 
-export type ActivityAction = 'person_added' | 'person_updated' | 'person_removed'
+export type ActivityAction =
+  | 'person_added'
+  | 'person_updated'
+  | 'person_removed'
+  | 'relationship_added'
+  | 'relationship_removed'
 
-export type ActivityFieldDiff = Record<string, { old: unknown; new: unknown }>
+/** Shape depends on `action`: a field-diff object for person_updated, or
+ *  { relationship_type, person_a_name, person_b_name } for relationship events. */
+export type ActivityDetails = Record<string, unknown>
 
 export type ActivityLogRow = {
   id: string
@@ -97,7 +104,7 @@ export type ActivityLogRow = {
   actor_id: string | null
   action: ActivityAction
   person_name: string
-  details: ActivityFieldDiff | null
+  details: ActivityDetails | null
   created_at: string
 }
 
