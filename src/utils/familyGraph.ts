@@ -97,4 +97,50 @@ export class FamilyGraph {
   childLinkCurve(childId: string, parentKey: string): { x: number; y: number } | null {
     return this.childLinkCurveByKey.get(`${childId}|${parentKey}`) ?? null
   }
+
+  /**
+   * A scoped editor's editable region: rootPersonId + partner, the direct
+   * ancestor line up to 4 generations up (each ancestor's partner included),
+   * and the direct descendant line up to 2 generations down (each
+   * descendant's partner included). This is a direction-locked walk, not a
+   * generation band -- siblings/aunts/uncles/cousins are excluded since the
+   * walk never reverses direction. Mirrors the server-side
+   * get_edit_scope() in supabase/migrations/0009_scoped_editor.sql; this
+   * copy is for instant UI feedback only, not the security boundary.
+   */
+  editableScope(rootPersonId: string): Set<string> {
+    const scope = new Set<string>()
+    if (!this.people.has(rootPersonId)) return scope
+
+    const addWithPartners = (personId: string) => {
+      scope.add(personId)
+      for (const partnerId of this.partnerIds(personId)) scope.add(partnerId)
+    }
+
+    addWithPartners(rootPersonId)
+    this.walkChain(rootPersonId, (id) => this.parentIds(id), 4, addWithPartners)
+    this.walkChain(rootPersonId, (id) => this.childIds(id), 2, addWithPartners)
+
+    return scope
+  }
+
+  /**
+   * Bounded-depth BFS along a single one-hop relation (parentIds or
+   * childIds), visiting each newly-reached node at most once per depth. The
+   * outer loop is bounded by maxDepth regardless of graph shape, so a
+   * re-convergent lineage (e.g. a cousin marriage) can't cause unbounded
+   * work -- same termination argument as the SQL recursive CTEs it mirrors.
+   */
+  private walkChain(rootId: string, step: (id: string) => string[], maxDepth: number, visit: (id: string) => void): void {
+    let frontier = new Set<string>([rootId])
+    for (let depth = 0; depth < maxDepth; depth++) {
+      const next = new Set<string>()
+      for (const personId of frontier) {
+        for (const neighborId of step(personId)) next.add(neighborId)
+      }
+      if (next.size === 0) break
+      for (const id of next) visit(id)
+      frontier = next
+    }
+  }
 }
