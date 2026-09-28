@@ -248,9 +248,15 @@ export function exportTreeAsSvg(graph: FamilyGraph, style: TreeStyle, treeName: 
   downloadBlob(new Blob([svg], { type: 'image/svg+xml' }), `${slugify(treeName)}.svg`)
 }
 
+// 3x the layout's CSS-px coordinates lands near 216 DPI at the card's printed
+// size (72pt/in base, see the PDF export below) -- close to real print
+// quality, while still staying well under MAX_RASTER_DIMENSION for all but
+// very large trees.
+const RASTER_SCALE = 3
+
 export async function exportTreeAsPng(graph: FamilyGraph, style: TreeStyle, treeName: string) {
   const { svg, width, height } = buildExportSvg(graph, style, treeName)
-  const scale = safeScale(width, height, 2)
+  const scale = safeScale(width, height, RASTER_SCALE)
   const canvas = await svgToCanvas(svg, width, height, scale)
   const blob: Blob = await new Promise((resolve, reject) =>
     canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('PNG export failed.'))), 'image/png'),
@@ -258,21 +264,110 @@ export async function exportTreeAsPng(graph: FamilyGraph, style: TreeStyle, tree
   downloadBlob(blob, `${slugify(treeName)}.png`)
 }
 
+const A4_PT = { width: 595.28, height: 841.89 }
+/** Printable-edge safety margin, and where each tile's page-position label sits. */
+const TILE_MARGIN = 28
+/** How much adjacent tiles overlap, so slightly-misaligned edges still line up when trimmed and taped. */
+const TILE_OVERLAP = 30
+
+/** Start offsets (in world/content units) for tiles covering `total`, each `tileSize` wide, `strideSize` apart. The last tile is pulled back flush with the far edge instead of leaving a near-empty trailing tile. */
+function computeTileStarts(total: number, tileSize: number, strideSize: number): number[] {
+  if (total <= tileSize) return [0]
+  const starts: number[] = []
+  let pos = 0
+  while (pos + tileSize < total) {
+    starts.push(pos)
+    pos += strideSize
+  }
+  starts.push(Math.max(0, total - tileSize))
+  return starts
+}
+
+function parseSvgElement(svg: string): Element {
+  return new DOMParser().parseFromString(svg, 'image/svg+xml').documentElement
+}
+
+const tileLabel = (row: number, col: number) => `${row + 1}${String.fromCharCode(65 + col)}`
+
+/**
+ * 1 layout px = 1 pt, so the tree is laid out at its true physical print
+ * size. A small tree gets a single page sized to fit it exactly, like a
+ * poster sheet. A large one is split into a grid of A4 pages with an
+ * overlap margin and position labels, so it can be printed at a normal
+ * copy shop or home printer and assembled by hand -- plus a lead page
+ * showing the whole tree with the grid overlaid, as an assembly map.
+ */
 export async function exportTreeAsPdf(graph: FamilyGraph, style: TreeStyle, treeName: string) {
   const { svg, width, height } = buildExportSvg(graph, style, treeName)
-  const scale = safeScale(width, height, 2)
-  const canvas = await svgToCanvas(svg, width, height, scale)
-  const imageData = canvas.toDataURL('image/jpeg', 0.92)
+  const [{ jsPDF }] = await Promise.all([import('jspdf'), import('svg2pdf.js')])
 
-  // 1 layout px = 1 pt: for a large tree this is a physically large ("poster")
-  // page rather than forcing everything to fit on A4, so nothing shrinks to
-  // the point of being unreadable.
-  const { jsPDF } = await import('jspdf')
-  const pdf = new jsPDF({
-    orientation: width >= height ? 'landscape' : 'portrait',
-    unit: 'pt',
-    format: [width, height],
+  const landscape = width >= height
+  const pageWidth = landscape ? A4_PT.height : A4_PT.width
+  const pageHeight = landscape ? A4_PT.width : A4_PT.height
+  const tileContentWidth = pageWidth - TILE_MARGIN * 2
+  const tileContentHeight = pageHeight - TILE_MARGIN * 2
+
+  if (width <= tileContentWidth && height <= tileContentHeight) {
+    const pdf = new jsPDF({
+      orientation: landscape ? 'landscape' : 'portrait',
+      unit: 'pt',
+      format: [width + TILE_MARGIN * 2, height + TILE_MARGIN * 2],
+    })
+    await pdf.svg(parseSvgElement(svg), { x: TILE_MARGIN, y: TILE_MARGIN, width, height })
+    pdf.save(`${slugify(treeName)}.pdf`)
+    return
+  }
+
+  const colStarts = computeTileStarts(width, tileContentWidth, tileContentWidth - TILE_OVERLAP)
+  const rowStarts = computeTileStarts(height, tileContentHeight, tileContentHeight - TILE_OVERLAP)
+  const pageCount = colStarts.length * rowStarts.length
+
+  const pdf = new jsPDF({ orientation: landscape ? 'landscape' : 'portrait', unit: 'pt', format: [pageWidth, pageHeight] })
+
+  // Lead page: a shrunk-to-fit overview with the tile grid overlaid.
+  const overviewScale = Math.min(tileContentWidth / width, tileContentHeight / height)
+  const overviewWidth = width * overviewScale
+  const overviewHeight = height * overviewScale
+  const overviewX = TILE_MARGIN + (tileContentWidth - overviewWidth) / 2
+  const overviewY = TILE_MARGIN + (tileContentHeight - overviewHeight) / 2
+  await pdf.svg(parseSvgElement(svg), { x: overviewX, y: overviewY, width: overviewWidth, height: overviewHeight })
+  pdf.setDrawColor(200, 80, 40)
+  pdf.setLineWidth(0.75)
+  for (const c of colStarts) {
+    if (c === 0) continue
+    const x = overviewX + c * overviewScale
+    pdf.line(x, overviewY, x, overviewY + overviewHeight)
+  }
+  for (const r of rowStarts) {
+    if (r === 0) continue
+    const y = overviewY + r * overviewScale
+    pdf.line(overviewX, y, overviewX + overviewWidth, y)
+  }
+  pdf.setFontSize(8)
+  pdf.setTextColor(120, 60, 30)
+  rowStarts.forEach((r, ri) => {
+    colStarts.forEach((c, ci) => {
+      pdf.text(tileLabel(ri, ci), overviewX + c * overviewScale + 3, overviewY + r * overviewScale + 10)
+    })
   })
-  pdf.addImage(imageData, 'JPEG', 0, 0, width, height)
+  pdf.setFontSize(10)
+  pdf.setTextColor(30, 25, 18)
+  pdf.text(
+    `${treeName} — print all ${pageCount} following pages at 100% scale (not "fit to page"), then trim and align the overlapping edges using the labels above.`,
+    TILE_MARGIN,
+    pageHeight - TILE_MARGIN / 2,
+    { maxWidth: pageWidth - TILE_MARGIN * 2 },
+  )
+
+  for (let ri = 0; ri < rowStarts.length; ri++) {
+    for (let ci = 0; ci < colStarts.length; ci++) {
+      pdf.addPage([pageWidth, pageHeight], landscape ? 'landscape' : 'portrait')
+      await pdf.svg(parseSvgElement(svg), { x: TILE_MARGIN - colStarts[ci], y: TILE_MARGIN - rowStarts[ri], width, height })
+      pdf.setFontSize(8)
+      pdf.setTextColor(120, 60, 30)
+      pdf.text(`${treeName} — ${tileLabel(ri, ci)} (page ${ri * colStarts.length + ci + 2} of ${pageCount + 1})`, TILE_MARGIN, 16)
+    }
+  }
+
   pdf.save(`${slugify(treeName)}.pdf`)
 }

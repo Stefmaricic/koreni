@@ -124,7 +124,7 @@
     "exportPngTitle": "PNG (slika)",
     "exportPngBody": "Najlakše za deljenje porukom, imejlom ili na društvenim mrežama.",
     "exportPdfTitle": "PDF (dokument)",
-    "exportPdfBody": "Najbolje za štampu ili čuvanje kao dokument za arhivu.",
+    "exportPdfBody": "Najbolje za štampu — velika stabla se automatski dele na više A4 stranica za lepljenje.",
     "exportRecommendedForLarge": "Preporučeno za vaše stablo ({{count}} osoba)",
     "exporting": "Izvoženje…",
     "exportError": "Izvoz nije uspeo. Pokušajte ponovo.",
