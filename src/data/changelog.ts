@@ -9,6 +9,25 @@ export interface ChangelogEntry {
 // short bullet phrases, the way you'd casually tell someone what's new.
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: '2026-09-28',
+    cyrl: [
+      'Могућност уклањања чланова са породичног стабла',
+      'Историја измена стабла — ко је шта променио и када',
+      'Нов, органски распоред стабла — сада заиста личи на дрво',
+      'Ручно померање особа на стаблу превлачењем',
+      'Поправљено сецкање презимена код особа са сликом',
+      'Поправљено случајно означавање текста при померању стабла',
+    ],
+    latn: [
+      'Mogućnost uklanjanja članova sa porodičnog stabla',
+      'Istorija izmena stabla — ko je šta promenio i kada',
+      'Nov, organski raspored stabla — sada zaista liči na drvo',
+      'Ručno pomeranje osoba na stablu prevlačenjem',
+      'Popravljeno sečkanje prezimena kod osoba sa slikom',
+      'Popravljeno slučajno označavanje teksta pri pomeranju stabla',
+    ],
+  },
+  {
     date: '2026-09-27',
     cyrl: [
       'Позивање чланова породице да заједно уређују стабло',
