@@ -212,12 +212,22 @@ export function TreeCanvas({
               maxGeneration ? link.childGeneration / maxGeneration : 0,
             )
             const strokeWidth = link.primary ? Math.max(2, 6 - link.childGeneration * 0.7) : 1.5
-            const parent = effectiveXY(link.parentId, link.parentX, link.parentY - NODE_HEIGHT)
-            const child = effectiveXY(link.childId, link.childX, link.childY)
+            // link.parentY/childY are the pre-computed *anchor edges* (which
+            // physical edge of the card faces the other person flips between
+            // 'classic' and 'rooted', since the whole canvas is mirrored
+            // vertically) -- convert to/from plain top-left Y around the
+            // override lookup so a dragged card's edge comes out right in
+            // either style, instead of assuming one fixed edge.
+            const parentTopFallback = link.parentY - (style === 'classic' ? NODE_HEIGHT : 0)
+            const childTopFallback = link.childY - (style === 'classic' ? 0 : NODE_HEIGHT)
+            const parentTop = effectiveXY(link.parentId, link.parentX, parentTopFallback)
+            const childTop = effectiveXY(link.childId, link.childX, childTopFallback)
+            const parent = { x: parentTop.x, y: style === 'classic' ? parentTop.y + NODE_HEIGHT : parentTop.y }
+            const child = { x: childTop.x, y: style === 'classic' ? childTop.y : childTop.y + NODE_HEIGHT }
             return (
               <path
                 key={link.id}
-                d={branchPath(parent.x, parent.y + NODE_HEIGHT, child.x, child.y, jitter(link.id))}
+                d={branchPath(parent.x, parent.y, child.x, child.y, jitter(link.id))}
                 stroke={link.primary ? color : 'var(--color-earth-300)'}
                 strokeWidth={strokeWidth}
                 strokeLinecap="round"

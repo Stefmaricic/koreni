@@ -148,10 +148,14 @@ export function buildExportSvg(graph: FamilyGraph, style: TreeStyle, treeName: s
     const strokeWidth = link.primary ? Math.max(2, 6 - link.childGeneration * 0.7) : 1.5
     const dash = link.primary ? '' : ' stroke-dasharray="2 5"'
     const opacity = link.primary ? 1 : 0.6
-    const parent = effectiveXY(link.parentId, link.parentX, link.parentY - NODE_HEIGHT)
-    const child = effectiveXY(link.childId, link.childX, link.childY)
+    const parentTopFallback = link.parentY - (style === 'classic' ? NODE_HEIGHT : 0)
+    const childTopFallback = link.childY - (style === 'classic' ? 0 : NODE_HEIGHT)
+    const parentTop = effectiveXY(link.parentId, link.parentX, parentTopFallback)
+    const childTop = effectiveXY(link.childId, link.childX, childTopFallback)
+    const parent = { x: parentTop.x, y: style === 'classic' ? parentTop.y + NODE_HEIGHT : parentTop.y }
+    const child = { x: childTop.x, y: style === 'classic' ? childTop.y : childTop.y + NODE_HEIGHT }
     parts.push(
-      `<path d="${branchPath(parent.x, parent.y + NODE_HEIGHT, child.x, child.y, jitter(link.id))}" stroke="${link.primary ? color : PALETTE.earthLine}" stroke-width="${strokeWidth}" stroke-linecap="round" opacity="${opacity}"${dash} fill="none" />`,
+      `<path d="${branchPath(parent.x, parent.y, child.x, child.y, jitter(link.id))}" stroke="${link.primary ? color : PALETTE.earthLine}" stroke-width="${strokeWidth}" stroke-linecap="round" opacity="${opacity}"${dash} fill="none" />`,
     )
   }
 
